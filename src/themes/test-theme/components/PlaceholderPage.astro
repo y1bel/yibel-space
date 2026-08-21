@@ -1,0 +1,14 @@
+---
+interface Props {
+  page: string;
+  dataSummary?: string;
+}
+
+const { page, dataSummary } = Astro.props;
+---
+
+<main>
+  <h1>Test theme / {page}</h1>
+  <p>Contract-validation placeholder. No visual system has been implemented.</p>
+  {dataSummary && <p>Injected core data: {dataSummary}</p>}
+</main>

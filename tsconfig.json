@@ -1,0 +1,12 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@core/*": ["src/core/*"],
+      "@themes/*": ["src/themes/*"],
+      "@shared/*": ["src/shared/*"],
+      "@config/*": ["src/config/*"]
+    }
+  }
+}

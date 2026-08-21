@@ -1,0 +1,14 @@
+---
+interface Props {
+  page: string;
+  dataSummary?: string;
+}
+
+const { page, dataSummary } = Astro.props;
+---
+
+<main>
+  <h1>Archive theme: {page}</h1>
+  <p>First-phase placeholder. Presentation design is intentionally deferred.</p>
+  {dataSummary && <p>Core data loaded: {dataSummary}</p>}
+</main>

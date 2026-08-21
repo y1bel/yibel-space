@@ -1,0 +1,15 @@
+---
+import { getProjectBySlug, getProjects } from "@core/content";
+import { getActiveTheme } from "@core/theme";
+
+export async function getStaticPaths() {
+  const projects = await getProjects();
+  return projects.map((project) => ({ params: { slug: project.slug } }));
+}
+
+const theme = getActiveTheme();
+const Page = theme.pages.project;
+const project = await getProjectBySlug(Astro.params.slug ?? "");
+---
+
+<Page page="Project detail" dataSummary={project ? `project: ${project.title}` : "project not found"} />

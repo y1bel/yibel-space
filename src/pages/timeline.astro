@@ -1,0 +1,10 @@
+---
+import { getTimeline } from "@core/content";
+import { getActiveTheme } from "@core/theme";
+
+const theme = getActiveTheme();
+const Page = theme.pages.timeline;
+const timeline = await getTimeline();
+---
+
+<Page page="Timeline" dataSummary={`events: ${timeline.length}`} />

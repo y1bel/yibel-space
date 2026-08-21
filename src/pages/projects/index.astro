@@ -1,0 +1,10 @@
+---
+import { getProjects } from "@core/content";
+import { getActiveTheme } from "@core/theme";
+
+const theme = getActiveTheme();
+const Page = theme.pages.projects;
+const projects = await getProjects();
+---
+
+<Page page="Projects" dataSummary={`projects: ${projects.length}`} />
