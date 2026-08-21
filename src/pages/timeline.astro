@@ -1,10 +1,11 @@
 ---
 import { getTimeline } from "@core/content";
-import { getActiveTheme } from "@core/theme";
+import { getActiveTheme, type TimelinePageData } from "@core/theme";
 
 const theme = getActiveTheme();
 const Page = theme.pages.timeline;
 const timeline = await getTimeline();
+const data: TimelinePageData = { kind: "timeline", timeline };
 ---
 
-<Page page="Timeline" dataSummary={`events: ${timeline.length}`} />
+<Page data={data} />

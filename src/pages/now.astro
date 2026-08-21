@@ -1,8 +1,9 @@
 ---
-import { getActiveTheme } from "@core/theme";
+import { getActiveTheme, type NowPageData } from "@core/theme";
 
 const theme = getActiveTheme();
 const Page = theme.pages.now;
+const data: NowPageData = { kind: "now" };
 ---
 
-<Page page="Now" />
+<Page data={data} />

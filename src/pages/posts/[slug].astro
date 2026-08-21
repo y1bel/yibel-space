@@ -1,6 +1,6 @@
 ---
-import { getPostBySlug, getPosts } from "@core/content";
-import { getActiveTheme } from "@core/theme";
+import { getPosts, getRenderedPostBySlug } from "@core/content";
+import { getActiveTheme, type PostPageData } from "@core/theme";
 
 export async function getStaticPaths() {
   const posts = await getPosts();
@@ -9,7 +9,11 @@ export async function getStaticPaths() {
 
 const theme = getActiveTheme();
 const Page = theme.pages.post;
-const post = await getPostBySlug(Astro.params.slug ?? "");
+const post = await getRenderedPostBySlug(Astro.params.slug ?? "");
+if (!post) {
+  throw new Error(`Post not found: ${Astro.params.slug}`);
+}
+const data: PostPageData = { kind: "post", post };
 ---
 
-<Page page="Post detail" dataSummary={post ? `post: ${post.title}` : "post not found"} />
+<Page data={data} />

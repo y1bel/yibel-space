@@ -1,10 +1,11 @@
 ---
 import { getPosts } from "@core/content";
-import { getActiveTheme } from "@core/theme";
+import { getActiveTheme, type ArchivePageData } from "@core/theme";
 
 const theme = getActiveTheme();
 const Page = theme.pages.archive;
 const posts = await getPosts();
+const data: ArchivePageData = { kind: "archive", posts };
 ---
 
-<Page page="Archive" dataSummary={`posts: ${posts.length}`} />
+<Page data={data} />

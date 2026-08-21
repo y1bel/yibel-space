@@ -1,3 +1,5 @@
+import type { AstroComponentFactory } from "astro/runtime/server/index.js";
+
 export interface Post {
   id: string;
   slug: string;
@@ -9,6 +11,11 @@ export interface Post {
   category?: string;
   cover?: string;
   draft: boolean;
+}
+
+export interface RenderedPost {
+  metadata: Post;
+  body: AstroComponentFactory;
 }
 
 export type ProjectStatus = "idea" | "active" | "paused" | "done" | "archived";

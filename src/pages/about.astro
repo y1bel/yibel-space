@@ -1,8 +1,9 @@
 ---
-import { getActiveTheme } from "@core/theme";
+import { getActiveTheme, type AboutPageData } from "@core/theme";
 
 const theme = getActiveTheme();
 const Page = theme.pages.about;
+const data: AboutPageData = { kind: "about" };
 ---
 
-<Page page="About" />
+<Page data={data} />

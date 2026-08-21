@@ -1,14 +1,17 @@
 ---
+import type { PageData } from "@core/theme";
+
 interface Props {
-  page: string;
-  dataSummary?: string;
+  data: PageData;
 }
 
-const { page, dataSummary } = Astro.props;
+const { data } = Astro.props;
+const Body = data.kind === "post" ? data.post.body : undefined;
 ---
 
 <main>
-  <h1>Test theme / {page}</h1>
+  <h1>Test theme / {data.kind}</h1>
   <p>Contract-validation placeholder. No visual system has been implemented.</p>
-  {dataSummary && <p>Injected core data: {dataSummary}</p>}
+  {data.kind === "post" && <p>{data.post.metadata.title}</p>}
+  {Body && <Body />}
 </main>
