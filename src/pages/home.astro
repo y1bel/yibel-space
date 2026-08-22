@@ -1,0 +1,16 @@
+---
+import { getPosts, getProjects, getTimeline } from "@core/content";
+import { getActiveTheme, type HomePageData } from "@core/theme";
+
+const theme = getActiveTheme();
+const Page = theme.pages.home;
+const [posts, projects, timeline] = await Promise.all([getPosts(), getProjects(), getTimeline()]);
+const data: HomePageData = {
+  kind: "home",
+  recentPosts: posts.slice(0, 5),
+  activeProjects: projects.filter((project) => project.status === "active"),
+  recentTimeline: timeline.slice(0, 5)
+};
+---
+
+<Page data={data} />

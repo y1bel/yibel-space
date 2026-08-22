@@ -1,61 +1,9 @@
 ---
 import type { HomePageData } from "@core/theme";
-import { routes } from "@core/routing";
-import ArchiveShell from "../components/ArchiveShell.astro";
-import ClassificationLabel from "../components/ClassificationLabel.astro";
-import Glyph from "../components/Glyph.astro";
-import MetadataPanel from "../components/MetadataPanel.astro";
-import RecordCard from "../components/RecordCard.astro";
-import StatusBadge from "../components/StatusBadge.astro";
-import Timeline from "../components/Timeline.astro";
+import SystemShell from "../components/SystemShell.astro";
 
 interface Props { data: HomePageData; }
-const { data } = Astro.props;
-const latestRecord = data.recentPosts[0];
+const isEntry = Astro.url.pathname === "/";
 ---
 
-<ArchiveShell section="OVERVIEW" title="ARCHIVE NODE A-001">
-  <section class="a1-intro a1-panel" aria-labelledby="overview-title">
-    <div class="a1-intro__eyebrow"><ClassificationLabel level="restricted">PERSONAL RESEARCH FACILITY</ClassificationLabel><span>NODE: A-001 // EST. 2026</span></div>
-    <div class="a1-intro__grid">
-      <div>
-        <p class="a1-kicker">SECURE INFORMATION STORE</p>
-        <h1 id="overview-title">YIBEL<br /><em>SPACE</em></h1>
-        <p class="a1-intro__copy">An indexed field archive for notes, systems, experiments, and accumulated evidence.</p>
-        <a class="a1-command-link" href={routes.archive}>ENTER RECORD INDEX <Glyph name="arrow" /></a>
-      </div>
-      <div class="a1-intro__readout">
-        <div class="a1-reticle" aria-hidden="true"><span></span><span></span><span></span><span></span><b>A-001</b></div>
-        <MetadataPanel compact items={[
-          { label: "NODE STATUS", value: "NOMINAL" },
-          { label: "RECORDS INDEXED", value: String(data.recentPosts.length).padStart(3, "0") },
-          { label: "ACTIVE FILES", value: String(data.activeProjects.length).padStart(3, "0") },
-          { label: "UPLINK", value: "STABLE" }
-        ]} />
-      </div>
-    </div>
-  </section>
-
-  <div class="a1-home-grid">
-    <section class="a1-section a1-section--records" aria-labelledby="recent-records-title">
-      <header class="a1-section__header"><div><p class="a1-section__id">01 / LATEST INTAKE</p><h2 id="recent-records-title">Recent records</h2></div><a href={routes.archive}>VIEW ALL <Glyph name="arrow" /></a></header>
-      <div class="a1-record-stack">
-        {data.recentPosts.length > 0 ? data.recentPosts.map((post, index) => <RecordCard post={post} index={index + 1} featured={index === 0} />) : <p class="a1-empty-state">NO PUBLIC RECORDS DETECTED.</p>}
-      </div>
-    </section>
-    <aside class="a1-side-stack">
-      <section class="a1-section a1-panel a1-panel--compact" aria-labelledby="active-files-title">
-        <header class="a1-section__header"><div><p class="a1-section__id">02 / LIVE DOSSIERS</p><h2 id="active-files-title">Active files</h2></div><Glyph name="signal" /></header>
-        <ul class="a1-project-feed">
-          {data.activeProjects.length > 0 ? data.activeProjects.map((project, index) => <li><a href={routes.project(project.slug)}><span>{String(index + 1).padStart(2, "0")}</span><strong>{project.title}</strong><StatusBadge status={project.status} /><Glyph name="arrow" /></a></li>) : <li class="a1-empty-state">NO ACTIVE FILES.</li>}
-        </ul>
-      </section>
-      <section class="a1-section a1-panel a1-panel--compact" aria-labelledby="activity-log-title">
-        <header class="a1-section__header"><div><p class="a1-section__id">03 / ACTIVITY TRACE</p><h2 id="activity-log-title">Timeline</h2></div></header>
-        <Timeline events={data.recentTimeline} limit={4} />
-      </section>
-    </aside>
-  </div>
-
-  {latestRecord && <section class="a1-prompt-bar" aria-label="Current archive prompt"><Glyph name="terminal" /><span>LAST SYNCHRONIZED RECORD:</span><a href={routes.post(latestRecord.slug)}>{latestRecord.title}</a><span class="a1-prompt-bar__cursor" aria-hidden="true"></span></section>}
-</ArchiveShell>
+<SystemShell entry={isEntry} home={!isEntry} code="A-001" />

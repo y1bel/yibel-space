@@ -47,4 +47,17 @@ const timeline = defineCollection({
   })
 });
 
-export const collections = { posts, projects, timeline };
+const logs = defineCollection({
+  type: "content",
+  schema: z.object({
+    title: z.string(),
+    description: z.string().optional(),
+    recordedAt: z.coerce.date(),
+    type: z.enum(["research", "fragment", "timeline"]),
+    postSlug: z.string().optional(),
+    tags: z.array(z.string()).default([]),
+    draft: z.boolean().default(false)
+  })
+});
+
+export const collections = { posts, projects, timeline, logs };

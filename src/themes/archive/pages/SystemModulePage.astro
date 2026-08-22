@@ -1,0 +1,18 @@
+---
+import type { SystemModulePageData } from "@core/theme";
+import { getMessages } from "@core/i18n";
+import SystemShell from "../components/SystemShell.astro";
+
+interface Props { data: SystemModulePageData; }
+const { data } = Astro.props;
+const copy = getMessages();
+const labels = { creations: copy.moduleCreations, collections: copy.moduleCollections, sites: copy.moduleSites } as const;
+const codes = { creations: "C-003", collections: "C-004", sites: "C-005" } as const;
+---
+
+<SystemShell workspace active={data.module} code={codes[data.module]}>
+  <section class="yt-module yt-placeholder" aria-labelledby="yt-module-title">
+    <header><span>MODULE {codes[data.module]}</span><p>INTAKE STATE // OPEN</p></header>
+    <div class="yt-placeholder__field"><span aria-hidden="true"></span><div><p>{String(labels[data.module]).toUpperCase()}</p><h1 id="yt-module-title">{labels[data.module]}</h1><small data-yt-copy="placeholder">{copy.placeholder}</small></div></div>
+  </section>
+</SystemShell>

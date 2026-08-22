@@ -1,0 +1,9 @@
+---
+import { getActiveTheme, type SystemModulePageData } from "@core/theme";
+
+const theme = getActiveTheme();
+const Page = theme.pages.systemModule;
+const data: SystemModulePageData = { kind: "system-module", module: "collections" };
+---
+
+<Page data={data} />

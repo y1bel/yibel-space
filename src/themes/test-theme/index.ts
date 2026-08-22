@@ -6,10 +6,7 @@ const testTheme: ThemeDefinition = {
   id: manifest.id,
   name: manifest.name,
   version: manifest.version,
-  metadata: {
-    description: manifest.description,
-    author: manifest.author
-  },
+  metadata: { description: manifest.description, author: manifest.author },
   features: manifest.supports,
   pages: {
     home: PlaceholderPage,
@@ -19,7 +16,9 @@ const testTheme: ThemeDefinition = {
     timeline: PlaceholderPage,
     now: PlaceholderPage,
     about: PlaceholderPage,
-    post: PlaceholderPage
+    post: PlaceholderPage,
+    personnel: PlaceholderPage,
+    systemModule: PlaceholderPage
   }
 };
 

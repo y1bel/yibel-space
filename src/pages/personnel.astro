@@ -1,0 +1,9 @@
+---
+import { getActiveTheme, type PersonnelPageData } from "@core/theme";
+
+const theme = getActiveTheme();
+const Page = theme.pages.personnel;
+const data: PersonnelPageData = { kind: "personnel" };
+---
+
+<Page data={data} />

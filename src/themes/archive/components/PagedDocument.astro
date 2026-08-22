@@ -1,0 +1,48 @@
+---
+import type { PostView } from "@core/content";
+import type { ArchiveClassification } from "../metadata";
+import CaseHeader from "./CaseHeader.astro";
+import ClassificationStamp from "./ClassificationStamp.astro";
+
+interface Props {
+  post: PostView;
+  classification: ArchiveClassification;
+  documentType: string;
+  recordId: string;
+}
+
+const { post, classification, documentType, recordId } = Astro.props;
+---
+
+<div class="a1-paged-document" data-a1-paged-document data-a1-record-id={recordId} data-a1-document-type={documentType} data-a1-classification={classification}>
+  <div class="a1-paged-document__measure" aria-hidden="true">
+    <article class="a1-case-file a1-case-file--measure" data-a1-redactions>
+      <CaseHeader post={post} documentType={documentType} recordId={recordId} />
+      <section class="a1-case-file__body" aria-label="Archive content">
+        <div class="a1-case-file__content" data-a1-document-content>
+          <slot />
+        </div>
+      </section>
+      <footer class="a1-case-file__footer"><span>END OF RECORD</span><span>01 / 01</span></footer>
+      <div class="a1-stamp-overlay" aria-hidden="true">
+        <ClassificationStamp level={classification} />
+      </div>
+    </article>
+  </div>
+
+  <div class="a1-paged-document__viewport" data-a1-viewport>
+    <div class="a1-paged-document__pages" data-a1-pages></div>
+  </div>
+
+  <div class="a1-paged-document__nav" data-a1-nav hidden>
+    <button class="a1-paged-document__btn" data-a1-prev aria-label="Previous page">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      <span>PREV</span>
+    </button>
+    <div class="a1-paged-document__indicator" data-a1-indicator>01 / 01</div>
+    <button class="a1-paged-document__btn" data-a1-next aria-label="Next page">
+      <span>NEXT</span>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+  </div>
+</div>

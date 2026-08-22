@@ -1,0 +1,18 @@
+---
+import type { PersonnelPageData } from "@core/theme";
+import { getMessages } from "@core/i18n";
+import SystemShell from "../components/SystemShell.astro";
+
+interface Props { data: PersonnelPageData; }
+const copy = getMessages();
+---
+
+<SystemShell workspace active="personnel" code="P-001">
+  <section class="yt-module yt-personnel" aria-labelledby="yt-personnel-title">
+    <header><span>01 / {copy.personnel}</span><p>STATUS // STANDBY</p></header>
+    <div class="yt-personnel__grid">
+      <div class="yt-personnel__identity"><div aria-hidden="true"><span>Y</span></div><p>YIBEL</p><small>PERSONAL OPERATOR</small></div>
+      <div class="yt-personnel__copy"><h1 id="yt-personnel-title" data-yt-copy="profileTitle">{copy.profileTitle}</h1><p data-yt-copy="profileCopy">{copy.profileCopy}</p><ul><li>IDENTITY <b>RESTRICTED / PENDING</b></li><li>CURRENT STATUS <b>ACTIVE</b></li><li>CONTACT CHANNEL <b>UNASSIGNED</b></li></ul></div>
+    </div>
+  </section>
+</SystemShell>

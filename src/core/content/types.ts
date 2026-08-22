@@ -60,3 +60,21 @@ export interface TimelineEvent {
     slug: string;
   };
 }
+export type LogType = "research" | "fragment" | "timeline";
+
+export interface LogEntry {
+  id: string;
+  slug: string;
+  title: string;
+  description?: string;
+  recordedAt: Date;
+  type: LogType;
+  postSlug?: string;
+  tags: string[];
+  draft: boolean;
+}
+
+export interface RenderedLog {
+  metadata: LogEntry;
+  body: AstroComponentFactory;
+}

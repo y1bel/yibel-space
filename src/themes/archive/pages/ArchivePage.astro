@@ -1,31 +1,40 @@
 ---
 import type { ArchivePageData } from "@core/theme";
-import ArchiveShell from "../components/ArchiveShell.astro";
-import ClassificationLabel from "../components/ClassificationLabel.astro";
-import Glyph from "../components/Glyph.astro";
-import RecordCard from "../components/RecordCard.astro";
+import { getMessages } from "@core/i18n";
+import { routes } from "@core/routing";
+import SystemShell from "../components/SystemShell.astro";
 
 interface Props { data: ArchivePageData; }
 const { data } = Astro.props;
-const recordsByYear = data.posts.reduce<Record<string, typeof data.posts>>((groups, post) => {
-  const year = String(post.publishedAt.getFullYear());
-  (groups[year] ??= []).push(post);
-  return groups;
-}, {});
+const copy = getMessages();
+const formatDate = (date: Date) => new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date).replaceAll("-", ".");
+const kindForPost = (post: (typeof data.posts)[number]) => post.category === "fragment" ? "fragment" : "research";
 ---
 
-<ArchiveShell section="RECORD INDEX" title="PUBLIC RECORDS">
-  <header class="a1-page-heading">
-    <div><ClassificationLabel level="open">DATABASE: TEXTUAL MATERIAL</ClassificationLabel><h1>Record index</h1><p>Authorized public records, ordered by date of intake.</p></div>
-    <div class="a1-index-stamp"><span>INDEX STATE</span><b>{String(data.posts.length).padStart(3, "0")} RECORDS</b><Glyph name="archive" /></div>
-  </header>
-  <section class="a1-index-panel a1-panel" aria-label="Archive records">
-    <div class="a1-index-panel__head"><span>DATE / IDENTIFIER</span><span>RECORD TITLE / SUMMARY</span><span>ACCESS</span></div>
-    {data.posts.length > 0 ? Object.entries(recordsByYear).map(([year, posts]) => (
-      <section class="a1-year-block" aria-labelledby={`year-${year}`}>
-        <div class="a1-year-block__heading"><h2 id={`year-${year}`}>{year}</h2><span>{String(posts.length).padStart(2, "0")} ENTRIES</span></div>
-        {posts.map((post, index) => <RecordCard post={post} index={index + 1} />)}
-      </section>
-    )) : <p class="a1-empty-state">NO RECORDS CLEARED FOR PUBLIC INDEXING.</p>}
+<SystemShell workspace active="logs" code="L-002">
+  <section class="yt-logs" aria-labelledby="yt-logs-title">
+    <header class="yt-logs__heading"><div><p>02 / RECORD RETENTION</p><h1 id="yt-logs-title" data-yt-copy="logsTitle">{copy.logsTitle}</h1><span data-yt-copy="logsCopy">{copy.logsCopy}</span></div><b>{String(data.posts.length).padStart(2, "0")} ENTRIES</b></header>
+    <nav class="yt-logs__filters" aria-label="Log categories"><button class="is-active" type="button" data-yt-log-filter="all" data-yt-copy="allLogs">{copy.allLogs}</button><button type="button" data-yt-log-filter="research" data-yt-copy="research">{copy.research}</button><button type="button" data-yt-log-filter="fragment" data-yt-copy="fragments">{copy.fragments}</button><a href={routes.timeline} data-yt-copy="timeline">{copy.timeline}</a></nav>
+    <div class="yt-logs__list" data-yt-log-list>
+      {data.posts.map((post, index) => <a href={routes.post(post.slug)} data-yt-log-kind={kindForPost(post)}><span>{String(index + 1).padStart(2, "0")}</span><time>{formatDate(post.publishedAt)}</time><div><b>{post.title}</b><small>{post.description ?? post.category ?? "research"}</small></div><em>{kindForPost(post)}</em></a>)}
+      <p class="yt-logs__empty" hidden data-yt-log-empty data-yt-copy="noLogs">{copy.noLogs}</p>
+    </div>
   </section>
-</ArchiveShell>
+</SystemShell>
+
+<script>
+  const filters = document.querySelectorAll("[data-yt-log-filter]");
+  const entries = document.querySelectorAll("[data-yt-log-kind]");
+  const empty = document.querySelector("[data-yt-log-empty]");
+  filters.forEach((filter) => filter.addEventListener("click", () => {
+    const kind = filter.getAttribute("data-yt-log-filter");
+    let visible = 0;
+    entries.forEach((entry) => {
+      const show = kind === "all" || entry.getAttribute("data-yt-log-kind") === kind;
+      entry.toggleAttribute("hidden", !show);
+      if (show) visible += 1;
+    });
+    empty?.toggleAttribute("hidden", visible > 0);
+    filters.forEach((button) => button.classList.toggle("is-active", button === filter));
+  }));
+</script>

@@ -1,0 +1,144 @@
+---
+import { defaultLocale, getMessages, localeMessages } from "@core/i18n";
+import { systemNavigation } from "@core/navigation";
+import { archiveSystemConfig, type ArchiveBackground } from "../system-config";
+
+interface Props {
+  active?: "personnel" | "logs" | "creations" | "collections" | "sites";
+  code?: string;
+  entry?: boolean;
+  entryTarget?: string;
+  workspace?: boolean;
+  home?: boolean;
+}
+
+const { active, code = "A-001", entry = false, entryTarget = "/home", workspace = false, home = false } = Astro.props;
+const copy = getMessages();
+function resolveBackground(): ArchiveBackground { return archiveSystemConfig.background; }
+const background = resolveBackground();
+const menu = systemNavigation.map((item) => ({ ...item, label: copy[item.id] }));
+---
+
+<style is:global>@import "../styles/system.css";</style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<div class:list={["yt-terminal", { "yt-terminal--entry": entry, "yt-terminal--workspace": workspace, "yt-terminal--home": home }]} data-yt-shell data-yt-scene={background.type === "css" ? background.preset ?? "archive-ambient" : background.type} data-yt-entry={entry ? "true" : "false"} data-yt-home={home ? "true" : "false"} data-yt-workspace={workspace ? "true" : "false"} data-yt-entry-target={entryTarget}>
+  <div class="yt-terminal__scene" aria-hidden="true">
+    {background.type === "video" && <video class="yt-terminal__media" autoplay muted loop playsinline poster={background.poster}><source src={background.src} /></video>}
+    {(background.type === "image" || background.type === "gif") && <img class="yt-terminal__media" src={background.src} alt="" />}
+  </div>
+
+  {entry && <div class="yt-entry" data-yt-entry-screen aria-live="polite">
+    <div class="yt-entry__mark" aria-hidden="true">{archiveSystemConfig.entryMark}</div>
+    <h1>{archiveSystemConfig.entryTitle}</h1>
+    <p class="yt-entry__subtitle">{archiveSystemConfig.entrySubtitle}</p>
+    <button class="yt-entry__begin" type="button" data-yt-begin><span><span data-yt-copy="pressEnterPrefix">{copy.pressEnterPrefix}</span> <kbd>ENTER</kbd> <span data-yt-copy="pressEnterSuffix">{copy.pressEnterSuffix}</span></span></button>
+    <div class="yt-entry__loading" data-yt-loading aria-hidden="true"><div><i data-yt-progress></i></div><b data-yt-progress-value>00%</b></div>
+  </div>}
+
+  <div class="yt-terminal__frame">
+    <header class="yt-terminal__header">
+      <a class="yt-terminal__identity" href="/" aria-label={copy.system}><span>Y</span><b data-yt-copy="system">{copy.system}</b></a>
+      <div class="yt-terminal__controls">
+        <span class="yt-terminal__state"><i></i><b data-yt-copy="status">{copy.status}</b></span>
+        <button class="yt-terminal__menu-button" type="button" data-yt-menu aria-expanded="false" aria-controls="yt-system-menu"><span>MENU</span><i aria-hidden="true"></i></button>
+        {workspace && <a class="yt-terminal__exit" href="/home" data-yt-exit><span data-yt-copy="exit">{copy.exit}</span><kbd>G</kbd></a>}
+      </div>
+    </header>
+    <main class="yt-terminal__main"><slot /></main>
+    <footer class="yt-terminal__footer"><span>{code} // PERSONAL INTERFACE</span><span data-yt-copy="signal">{copy.signal}</span></footer>
+  </div>
+
+  {(entry || home) && <div class="yt-hud" aria-label="System information"><span class="yt-hud__weather">{archiveSystemConfig.hud.weather}</span><span class="yt-hud__region">{archiveSystemConfig.hud.region}</span><span class="yt-hud__network"><i></i>{archiveSystemConfig.hud.network}</span><button type="button" data-yt-settings aria-label="Open system settings"><span aria-hidden="true">⚙</span><kbd>S</kbd></button><time data-yt-clock>{archiveSystemConfig.hud.clock}</time></div>}
+
+  <aside class="yt-terminal__menu" id="yt-system-menu" aria-hidden={workspace ? "false" : "true"}>
+    <div class="yt-terminal__menu-top"><span>{code} / MAIN MENU</span><button type="button" data-yt-menu-close data-yt-copy="closeMenu">{copy.closeMenu}</button></div>
+    <div class="yt-terminal__menu-links">
+      {menu.map((item) => <a class:list={{ "is-active": active === item.id }} href={item.href}><b data-yt-copy={item.id}>{item.label}</b></a>)}
+    </div>
+  </aside>
+
+  <aside class="yt-settings" data-yt-settings-panel aria-hidden="true" aria-label="System settings">
+    <header><span data-yt-copy="settings">{copy.settings}</span><button type="button" data-yt-settings-close>ESC / <span data-yt-copy="close">{copy.close}</span></button></header>
+    <div><span data-yt-copy="languageLabel">{copy.languageLabel}</span><button type="button" data-yt-locale data-yt-copy="language">{copy.language}</button></div>
+  </aside>
+</div>
+
+<script is:inline define:vars={{ messages: localeMessages, initialLocale: defaultLocale }}>
+  const shell = document.querySelector("[data-yt-shell]");
+  const isEntry = shell?.getAttribute("data-yt-entry") === "true";
+  const isWorkspace = shell?.getAttribute("data-yt-workspace") === "true";
+  const isHome = shell?.getAttribute("data-yt-home") === "true";
+  const trigger = document.querySelector("[data-yt-menu]");
+  const menu = document.querySelector("#yt-system-menu");
+  const menuClose = document.querySelector("[data-yt-menu-close]");
+  const settingsTrigger = document.querySelector("[data-yt-settings]");
+  const settings = document.querySelector("[data-yt-settings-panel]");
+  const settingsClose = document.querySelector("[data-yt-settings-close]");
+  const localeButton = document.querySelector("[data-yt-locale]");
+  const begin = document.querySelector("[data-yt-begin]");
+  const entryTarget = shell?.getAttribute("data-yt-entry-target");
+  const progress = document.querySelector("[data-yt-progress]");
+  const progressValue = document.querySelector("[data-yt-progress-value]");
+  let loading = false;
+
+  const setMenu = (open) => {
+    const next = isWorkspace ? true : open;
+    shell?.classList.toggle("is-menu-open", next);
+    trigger?.setAttribute("aria-expanded", String(next));
+    menu?.setAttribute("aria-hidden", String(!next));
+    document.body.classList.toggle("yt-scroll-lock", !isWorkspace && (next || shell?.classList.contains("is-settings-open")));
+  };
+  const setSettings = (open) => {
+    shell?.classList.toggle("is-settings-open", open);
+    settings?.setAttribute("aria-hidden", String(!open));
+    document.body.classList.toggle("yt-scroll-lock", open || shell?.classList.contains("is-menu-open"));
+  };
+  const applyLocale = (locale) => {
+    const dictionary = messages[locale] || messages[initialLocale];
+    document.documentElement.lang = locale;
+    document.querySelectorAll("[data-yt-copy]").forEach((element) => {
+      const key = element.getAttribute("data-yt-copy");
+      if (key && dictionary[key]) element.textContent = dictionary[key];
+    });
+    localStorage.setItem("yibel-locale", locale);
+  };
+  const runLoading = () => {
+    if (loading || !isEntry) return;
+    loading = true;
+    shell?.classList.add("is-entry-loading");
+    let value = 0;
+    const timer = window.setInterval(() => {
+      value = Math.min(100, value + 1);
+      if (progress) progress.style.width = `${value}%`;
+      if (progressValue) progressValue.textContent = `${String(value).padStart(2, "0")}%`;
+      if (value === 100) {
+        window.clearInterval(timer);
+        window.setTimeout(() => window.location.assign(entryTarget || "/home"), 480);
+      }
+    }, 56);
+  };
+
+  const savedLocale = localStorage.getItem("yibel-locale");
+  if (savedLocale && messages[savedLocale]) applyLocale(savedLocale);
+  begin?.addEventListener("click", runLoading);
+  trigger?.addEventListener("click", () => setMenu(!shell?.classList.contains("is-menu-open")));
+  menuClose?.addEventListener("click", () => setMenu(false));
+  settingsTrigger?.addEventListener("click", () => setSettings(true));
+  settingsClose?.addEventListener("click", () => setSettings(false));
+  localeButton?.addEventListener("click", () => applyLocale(document.documentElement.lang === "zh-CN" ? "en-US" : "zh-CN"));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") { setMenu(false); setSettings(false); }
+    if (event.key.toLowerCase() === "s" && !shell?.classList.contains("is-entry-loading")) setSettings(true);
+    if (event.key.toLowerCase() === "m" && !isEntry && !isWorkspace) setMenu(!shell?.classList.contains("is-menu-open"));
+    if (event.key.toLowerCase() === "g" && isWorkspace) window.location.assign("/home");
+    if (event.key === "Enter") {
+      if (isEntry) runLoading();
+      else if (isHome) window.location.assign("/personnel");
+    }
+  });
+  const renderClock = () => { const clock = document.querySelector("[data-yt-clock]"); if (clock) clock.textContent = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date()); };
+  renderClock(); window.setInterval(renderClock, 1000);
+  if (isWorkspace || (!isEntry && new URLSearchParams(window.location.search).get("menu") === "1")) setMenu(true);
+</script>

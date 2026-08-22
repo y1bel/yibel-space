@@ -1,1 +1,1 @@
-export type RouteName = "home" | "archive" | "projects" | "project" | "timeline" | "now" | "about" | "post";
+export type RouteName = "entry" | "home" | "archive" | "projects" | "project" | "timeline" | "now" | "about" | "post" | "personnel" | "creations" | "collections" | "sites";

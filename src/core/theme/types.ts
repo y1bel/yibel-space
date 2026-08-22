@@ -4,9 +4,11 @@ import type {
   ArchivePageData,
   HomePageData,
   NowPageData,
+  PersonnelPageData,
   PostPageData,
   ProjectPageData,
   ProjectsPageData,
+  SystemModulePageData,
   TimelinePageData
 } from "./page-data";
 
@@ -37,6 +39,8 @@ export interface ThemeDefinition {
     now: ThemePageComponent<NowPageData>;
     about: ThemePageComponent<AboutPageData>;
     post: ThemePageComponent<PostPageData>;
+    personnel: ThemePageComponent<PersonnelPageData>;
+    systemModule: ThemePageComponent<SystemModulePageData>;
   };
   metadata?: {
     description?: string;
