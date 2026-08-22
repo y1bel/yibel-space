@@ -1,0 +1,52 @@
+---
+import { routes } from "@core/routing";
+import type { ArchiveClassification } from "../metadata";
+import Glyph from "./Glyph.astro";
+import SystemBoot from "./SystemBoot.astro";
+
+interface Props {
+  section: string;
+  title?: string;
+  classification?: ArchiveClassification;
+  workspace?: boolean;
+}
+
+const { section, title, classification = "public", workspace = false } = Astro.props;
+const navigation = [
+  { label: "OVERVIEW", href: routes.home },
+  { label: "RECORD INDEX", href: routes.archive },
+  { label: "PROJECT LEDGER", href: routes.projects },
+  { label: "EVENT LOG", href: routes.timeline },
+  { label: "NOW", href: routes.now },
+  { label: "ABOUT", href: routes.about }
+];
+---
+
+<style is:global>@import "../styles/archive.css";</style>
+
+<div class:list={["a1-shell", { "a1-shell--workspace": workspace }]}>
+  <div class="a1-shell__noise" aria-hidden="true"></div>
+  <SystemBoot />
+  <header class="a1-masthead">
+    <a href={routes.home} class="a1-masthead__identity">
+      <Glyph name="archive" size="medium" />
+      <span>YIBEL<br /><b>SPACE</b></span>
+    </a>
+    <div class="a1-masthead__title">
+      <span>DATABASE / {section}</span>
+      {title && <strong>{title}</strong>}
+    </div>
+    <div class:list={["a1-clearance", `a1-clearance--${classification}`]}><span>CLEARANCE</span><b>{classification.toUpperCase()}</b></div>
+  </header>
+  <div class:list={["a1-shell__body", { "a1-shell__body--workspace": workspace }]}>
+    {!workspace && <aside class="a1-sidebar">
+      <nav aria-label="Archive navigation">
+        <p class="a1-sidebar__label">DIRECTORY</p>
+        <ul>{navigation.map((item, index) => <li><a class:list={{ "is-active": item.href === Astro.url.pathname }} href={item.href}><span>{String(index + 1).padStart(2, "0")}</span>{item.label}</a></li>)}</ul>
+      </nav>
+      <div class="a1-sidebar__signal"><span></span><p>NODE STABLE<br />SYNC: 100%</p></div>
+    </aside>}
+    <main id="main-content" class:list={["a1-main", { "a1-main--workspace": workspace }]}><slot /></main>
+  </div>
+  <footer class="a1-footer"><span>YIBEL SPACE — PERSONAL RESEARCH ARCHIVE</span><span>END OF TRANSMISSION</span></footer>
+</div>

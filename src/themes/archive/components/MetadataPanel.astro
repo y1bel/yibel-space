@@ -1,0 +1,22 @@
+---
+interface Item {
+  label: string;
+  value: string;
+}
+
+interface Props {
+  items: Item[];
+  compact?: boolean;
+}
+
+const { items, compact = false } = Astro.props;
+---
+
+<dl class:list={["a1-metadata", { "a1-metadata--compact": compact }]}>
+  {items.map(({ label, value }) => (
+    <div class="a1-metadata__item">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  ))}
+</dl>

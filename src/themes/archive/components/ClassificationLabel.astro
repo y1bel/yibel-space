@@ -1,0 +1,14 @@
+---
+interface Props {
+  level?: "open" | "restricted" | "classified";
+  children?: string;
+}
+
+const { level = "open" } = Astro.props;
+const labels = { open: "OPEN RECORD", restricted: "RESTRICTED", classified: "CLASSIFIED" };
+---
+
+<span class:list={["a1-classification", `a1-classification--${level}`]}>
+  <span class="a1-classification__mark">///</span>
+  <slot>{labels[level]}</slot>
+</span>

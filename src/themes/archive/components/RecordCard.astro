@@ -1,0 +1,31 @@
+---
+import type { Post } from "@core/content";
+import { routes } from "@core/routing";
+import ClassificationLabel from "./ClassificationLabel.astro";
+import Glyph from "./Glyph.astro";
+
+interface Props {
+  post: Post;
+  index?: number;
+  featured?: boolean;
+}
+
+const { post, index = 1, featured = false } = Astro.props;
+const date = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(post.publishedAt);
+---
+
+<article class:list={["a1-record-card", { "a1-record-card--featured": featured }]}>
+  <div class="a1-record-card__locator" aria-hidden="true">{String(index).padStart(2, "0")}</div>
+  <div class="a1-record-card__main">
+    <div class="a1-record-card__eyebrow">
+      <ClassificationLabel level={post.category ? "restricted" : "open"}>{post.category ?? "GENERAL RECORD"}</ClassificationLabel>
+      <time datetime={post.publishedAt.toISOString()}>{date}</time>
+    </div>
+    <h2><a href={routes.post(post.slug)}>{post.title}</a></h2>
+    {post.description && <p>{post.description}</p>}
+    {post.tags.length > 0 && <ul class="a1-tag-list" aria-label="Record tags">{post.tags.map((tag) => <li>{tag}</li>)}</ul>}
+  </div>
+  <a class="a1-record-card__access" href={routes.post(post.slug)} aria-label={`Open ${post.title}`}>
+    <span>ACCESS</span><Glyph name="arrow" />
+  </a>
+</article>

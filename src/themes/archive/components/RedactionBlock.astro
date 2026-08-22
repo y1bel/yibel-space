@@ -1,0 +1,5 @@
+---
+interface Props { label?: string; }
+const { label = "SUPPLEMENTAL MATERIAL WITHHELD" } = Astro.props;
+---
+<div class="a1-redaction-block"><span>{label}</span><i aria-hidden="true"></i></div>

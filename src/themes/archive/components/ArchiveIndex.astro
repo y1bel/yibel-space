@@ -1,0 +1,17 @@
+---
+import { routes } from "@core/routing";
+import Glyph from "./Glyph.astro";
+interface Props { currentFile: string; classification: string; }
+const { currentFile, classification } = Astro.props;
+---
+<aside class="a1-archive-index" aria-label="Archive category index">
+  <div class="a1-archive-index__head"><span>ARCHIVE INDEX</span><Glyph name="archive" /></div>
+  <nav><p>COLLECTIONS</p><ul>
+    <li><a href={routes.home}><span>01</span>OVERVIEW</a></li>
+    <li><a href={routes.archive}><span>02</span>WRITTEN RECORDS</a></li>
+    <li><a href={routes.projects}><span>03</span>PROJECT FILES</a></li>
+    <li><a href={routes.timeline}><span>04</span>ACTIVITY LOG</a></li>
+  </ul></nav>
+  <div class="a1-archive-index__current"><p>OPEN FILE</p><span>{currentFile}</span><small>CLASS: {classification}</small></div>
+  <a class="a1-archive-index__return" href={routes.archive}><Glyph name="arrow" /> RETURN TO RESULTS</a>
+</aside>

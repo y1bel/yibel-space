@@ -1,0 +1,20 @@
+---
+import type { PostView } from "@core/content";
+import type { ArchiveClassification } from "../metadata";
+import ClassificationStamp from "./ClassificationStamp.astro";
+
+interface Props {
+  post: PostView;
+  classification: ArchiveClassification;
+  documentType: string;
+  recordId: string;
+}
+
+const { post, classification, documentType, recordId } = Astro.props;
+---
+
+<header class="a1-case-header">
+  <div class="a1-case-header__top"><span>{documentType.toUpperCase()}</span><span>{recordId}</span></div>
+  <h1 id="record-title">{post.title}</h1>
+  <ClassificationStamp level={classification} />
+</header>

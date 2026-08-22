@@ -1,0 +1,31 @@
+---
+import type { ArchivePageData } from "@core/theme";
+import ArchiveShell from "../components/ArchiveShell.astro";
+import ClassificationLabel from "../components/ClassificationLabel.astro";
+import Glyph from "../components/Glyph.astro";
+import RecordCard from "../components/RecordCard.astro";
+
+interface Props { data: ArchivePageData; }
+const { data } = Astro.props;
+const recordsByYear = data.posts.reduce<Record<string, typeof data.posts>>((groups, post) => {
+  const year = String(post.publishedAt.getFullYear());
+  (groups[year] ??= []).push(post);
+  return groups;
+}, {});
+---
+
+<ArchiveShell section="RECORD INDEX" title="PUBLIC RECORDS">
+  <header class="a1-page-heading">
+    <div><ClassificationLabel level="open">DATABASE: TEXTUAL MATERIAL</ClassificationLabel><h1>Record index</h1><p>Authorized public records, ordered by date of intake.</p></div>
+    <div class="a1-index-stamp"><span>INDEX STATE</span><b>{String(data.posts.length).padStart(3, "0")} RECORDS</b><Glyph name="archive" /></div>
+  </header>
+  <section class="a1-index-panel a1-panel" aria-label="Archive records">
+    <div class="a1-index-panel__head"><span>DATE / IDENTIFIER</span><span>RECORD TITLE / SUMMARY</span><span>ACCESS</span></div>
+    {data.posts.length > 0 ? Object.entries(recordsByYear).map(([year, posts]) => (
+      <section class="a1-year-block" aria-labelledby={`year-${year}`}>
+        <div class="a1-year-block__heading"><h2 id={`year-${year}`}>{year}</h2><span>{String(posts.length).padStart(2, "0")} ENTRIES</span></div>
+        {posts.map((post, index) => <RecordCard post={post} index={index + 1} />)}
+      </section>
+    )) : <p class="a1-empty-state">NO RECORDS CLEARED FOR PUBLIC INDEXING.</p>}
+  </section>
+</ArchiveShell>

@@ -1,0 +1,29 @@
+---
+import type { TimelineEvent } from "@core/content";
+import { routes } from "@core/routing";
+import Glyph from "./Glyph.astro";
+
+interface Props {
+  events: TimelineEvent[];
+  limit?: number;
+}
+
+const { events, limit } = Astro.props;
+const visibleEvents = typeof limit === "number" ? events.slice(0, limit) : events;
+const destination = (event: TimelineEvent) => event.related && (event.related.type === "post" ? routes.post(event.related.slug) : routes.project(event.related.slug));
+---
+
+<ol class="a1-timeline">
+  {visibleEvents.map((event) => {
+    const href = destination(event);
+    return <li class="a1-timeline__entry">
+      <time datetime={event.date}>{event.date.replaceAll("-", ".")}</time>
+      <span class="a1-timeline__line" aria-hidden="true"></span>
+      <div>
+        <span class="a1-timeline__type">{event.type}</span>
+        {href ? <a href={href}>{event.title}<Glyph name="arrow" /></a> : <strong>{event.title}</strong>}
+        {event.description && <p>{event.description}</p>}
+      </div>
+    </li>;
+  })}
+</ol>

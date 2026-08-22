@@ -1,0 +1,7 @@
+---
+import type { ArchiveClassification } from "../metadata";
+
+interface Props { level: ArchiveClassification; }
+const { level } = Astro.props;
+---
+<span class:list={["a1-classification-stamp", `a1-classification-stamp--${level}`]}>{level.toUpperCase()}</span>

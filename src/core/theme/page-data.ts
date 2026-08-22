@@ -1,15 +1,15 @@
-import type { Post, Project, RenderedPost, TimelineEvent } from "@core/content";
+import type { PostView, Project, RenderedPost, TimelineEvent } from "@core/content";
 
 export interface HomePageData {
   kind: "home";
-  recentPosts: Post[];
+  recentPosts: PostView[];
   activeProjects: Project[];
   recentTimeline: TimelineEvent[];
 }
 
 export interface ArchivePageData {
   kind: "archive";
-  posts: Post[];
+  posts: PostView[];
 }
 
 export interface ProjectsPageData {
@@ -27,25 +27,8 @@ export interface TimelinePageData {
   timeline: TimelineEvent[];
 }
 
-export interface NowPageData {
-  kind: "now";
-}
+export interface NowPageData { kind: "now"; }
+export interface AboutPageData { kind: "about"; }
+export interface PostPageData { kind: "post"; post: RenderedPost; }
 
-export interface AboutPageData {
-  kind: "about";
-}
-
-export interface PostPageData {
-  kind: "post";
-  post: RenderedPost;
-}
-
-export type PageData =
-  | HomePageData
-  | ArchivePageData
-  | ProjectsPageData
-  | ProjectPageData
-  | TimelinePageData
-  | NowPageData
-  | AboutPageData
-  | PostPageData;
+export type PageData = HomePageData | ArchivePageData | ProjectsPageData | ProjectPageData | TimelinePageData | NowPageData | AboutPageData | PostPageData;

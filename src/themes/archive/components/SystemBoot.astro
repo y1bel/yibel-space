@@ -1,0 +1,16 @@
+---
+import Glyph from "./Glyph.astro";
+import StatusBadge from "./StatusBadge.astro";
+
+interface Props {
+  location?: string;
+}
+
+const { location = "SECTOR 01" } = Astro.props;
+---
+
+<div class="a1-system-boot" aria-label="Archive system status">
+  <span><Glyph name="terminal" /> YIBEL // ARCHIVE NODE</span>
+  <span class="a1-system-boot__location">{location}</span>
+  <StatusBadge status="online" />
+</div>

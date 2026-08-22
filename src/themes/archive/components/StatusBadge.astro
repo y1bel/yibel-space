@@ -1,0 +1,20 @@
+---
+import type { ProjectStatus } from "@core/content";
+
+interface Props {
+  status: ProjectStatus | "online" | "indexed";
+}
+
+const { status } = Astro.props;
+const labels: Record<Props["status"], string> = {
+  idea: "CONCEPT",
+  active: "ACTIVE",
+  paused: "ON HOLD",
+  done: "COMPLETE",
+  archived: "ARCHIVED",
+  online: "SYSTEM ONLINE",
+  indexed: "INDEXED"
+};
+---
+
+<span class:list={["a1-status", `a1-status--${status}`]}><i></i>{labels[status]}</span>

@@ -13,8 +13,18 @@ export interface Post {
   draft: boolean;
 }
 
+/**
+ * Namespaced presentation data transported by Core but interpreted only by the
+ * owning theme. It intentionally contains no theme-specific domain fields.
+ */
+export type ThemeExtensions = Readonly<Record<string, unknown>>;
+
+export interface PostView extends Post {
+  themeExtensions: ThemeExtensions;
+}
+
 export interface RenderedPost {
-  metadata: Post;
+  metadata: PostView;
   body: AstroComponentFactory;
 }
 

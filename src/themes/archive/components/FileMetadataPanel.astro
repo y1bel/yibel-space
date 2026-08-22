@@ -1,0 +1,12 @@
+---
+interface Item { label: string; value: string; }
+interface Props { items: Item[]; tags: string[]; researchNotes: string; }
+const { items, tags, researchNotes } = Astro.props;
+---
+<aside class="a1-file-metadata" aria-label="File metadata">
+  <header><span>FILE METADATA</span><b>READ ONLY</b></header>
+  <dl>{items.map(({ label, value }) => <div><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+  <section class="a1-file-metadata__terms"><h2>INDEX TERMS</h2>{tags.length > 0 ? <ul>{tags.map((tag) => <li>{tag}</li>)}</ul> : <p>UNSPECIFIED</p>}</section>
+  <section class="a1-file-metadata__notes"><h2>RESEARCH NOTES</h2><p>{researchNotes}</p></section>
+  <slot />
+</aside>

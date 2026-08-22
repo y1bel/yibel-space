@@ -1,0 +1,60 @@
+---
+import type { PostPageData } from "@core/theme";
+import ArchiveShell from "../components/ArchiveShell.astro";
+import ArchiveIndex from "../components/ArchiveIndex.astro";
+import CaseHeader from "../components/CaseHeader.astro";
+import DocumentViewer from "../components/DocumentViewer.astro";
+import FileMetadataPanel from "../components/FileMetadataPanel.astro";
+import RedactionBlock from "../components/RedactionBlock.astro";
+import { getArchivePostMetadata } from "../metadata";
+
+interface Props { data: PostPageData; }
+const { data } = Astro.props;
+const { metadata, body: Body } = data.post;
+const archiveMetadata = getArchivePostMetadata(metadata);
+const formatDate = (date: Date) => new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "long", day: "2-digit" }).format(date).toUpperCase();
+const classification = archiveMetadata.classification ?? "public";
+const fileNumber = archiveMetadata.recordId ?? metadata.id.toUpperCase();
+const documentType = archiveMetadata.documentType ?? "record";
+const recordStatus = archiveMetadata.recordStatus ?? "released";
+const dateOfRecord = archiveMetadata.receivedAt ?? formatDate(metadata.publishedAt);
+const indexTerms = archiveMetadata.indexTerms ?? metadata.tags;
+const researchNotes = archiveMetadata.researchNotes ?? metadata.description ?? "No research notes are available for this record.";
+---
+
+<ArchiveShell section="RESEARCH & RECORDS" title={`CASE FILE / ${fileNumber}`} classification={classification} workspace>
+  <section class="a1-workspace" aria-label="Archive workspace">
+    <ArchiveIndex currentFile={fileNumber} classification={classification.toUpperCase()} />
+    <DocumentViewer fileNumber={fileNumber}>
+      <article class="a1-case-file" aria-labelledby="record-title">
+        <CaseHeader post={metadata} classification={classification} documentType={documentType} recordId={fileNumber} />
+        <section class="a1-case-file__body" aria-label="Archive content">
+          <div class="a1-case-file__margin" aria-hidden="true"><span>01</span><i></i><span>END</span></div>
+          <div class="a1-case-file__content" data-a1-document-content><Body /></div>
+        </section>
+        <footer class="a1-case-file__footer"><span>END OF RECORD</span><span data-a1-page-counter>01 / --</span></footer>
+      </article>
+    </DocumentViewer>
+    <FileMetadataPanel items={[
+      { label: "FILE NUMBER", value: fileNumber },
+      { label: "DOCUMENT TYPE", value: documentType.toUpperCase() },
+      { label: "CLASSIFICATION", value: classification.toUpperCase() },
+      { label: "RECORD STATUS", value: recordStatus.toUpperCase() },
+      { label: "DATE OF RECORD", value: dateOfRecord }
+    ]} tags={indexTerms} researchNotes={researchNotes}>
+      <RedactionBlock label="NO SUPPLEMENTAL ATTACHMENTS" />
+    </FileMetadataPanel>
+  </section>
+</ArchiveShell>
+
+<script>
+  const content = document.querySelector<HTMLElement>("[data-a1-document-content]");
+  const bodyTrack = document.querySelector<HTMLElement>(".a1-case-file__body");
+  const counter = document.querySelector<HTMLElement>("[data-a1-page-counter]");
+
+  if (content && bodyTrack && counter) {
+    const pageCapacity = Math.max(1, bodyTrack.clientHeight);
+    const totalPages = Math.max(1, Math.ceil(content.scrollHeight / pageCapacity));
+    counter.textContent = `01 / ${String(totalPages).padStart(2, "0")}`;
+  }
+</script>

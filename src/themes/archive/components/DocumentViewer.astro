@@ -1,0 +1,8 @@
+---
+interface Props { fileNumber: string; }
+const { fileNumber } = Astro.props;
+---
+<section class="a1-document-viewer" aria-label={`Document viewer: ${fileNumber}`}>
+  <div class="a1-document-viewer__toolbar"><span>VIEWING / {fileNumber}</span><span>PAGE 01 OF 01</span></div>
+  <div class="a1-document-viewer__canvas"><slot /></div>
+</section>
