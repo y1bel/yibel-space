@@ -25,7 +25,8 @@
   background: transparent;
 }
 
-.yt-terminal--home .yt-terminal__main {
+.yt-terminal.yt-terminal--home .yt-terminal__main {
+  display: block;
   min-height: 100vh;
   padding: 0;
 }
@@ -144,10 +145,10 @@
   height: 24px;
 }
 
-.yt-world3d__reticle span:nth-child(1) { top: 0; left: 0; border-top: 1px solid rgba(255,255,255,.9); border-left: 1px solid rgba(255,255,255,.9); }
-.yt-world3d__reticle span:nth-child(2) { top: 0; right: 0; border-top: 1px solid rgba(255,255,255,.9); border-right: 1px solid rgba(255,255,255,.9); }
-.yt-world3d__reticle span:nth-child(3) { bottom: 0; left: 0; border-bottom: 1px solid rgba(255,255,255,.9); border-left: 1px solid rgba(255,255,255,.9); }
-.yt-world3d__reticle span:nth-child(4) { right: 0; bottom: 0; border-right: 1px solid rgba(255,255,255,.9); border-bottom: 1px solid rgba(255,255,255,.9); }
+.yt-world3d__reticle span:nth-child(1) { top: 0; left: 0; border-top: 1px solid rgba(23,23,22,.34); border-left: 1px solid rgba(23,23,22,.34); }
+.yt-world3d__reticle span:nth-child(2) { top: 0; right: 0; border-top: 1px solid rgba(23,23,22,.34); border-right: 1px solid rgba(23,23,22,.34); }
+.yt-world3d__reticle span:nth-child(3) { bottom: 0; left: 0; border-bottom: 1px solid rgba(23,23,22,.34); border-left: 1px solid rgba(23,23,22,.34); }
+.yt-world3d__reticle span:nth-child(4) { right: 0; bottom: 0; border-right: 1px solid rgba(23,23,22,.34); border-bottom: 1px solid rgba(23,23,22,.34); }
 
 .yt-world3d__reticle i {
   position: absolute;

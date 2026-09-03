@@ -1,27 +1,46 @@
 import * as THREE from "three";
 
 type ModuleId = "personnel" | "logs" | "creations" | "collections" | "sites";
+type WorldUpdate = (dt: number, elapsed: number) => void;
 
 type WorldObject = THREE.Group & {
   userData: {
     module?: ModuleId;
     hit?: THREE.Object3D;
-    update?: (dt: number, elapsed: number) => void;
+    update?: WorldUpdate;
     focus?: (active: boolean) => void;
     activate?: () => void;
     anchor?: THREE.Vector3;
   };
 };
 
-const root = document.querySelector<HTMLElement>("[data-yt-world3d]");
-const canvas = document.querySelector<HTMLCanvasElement>("[data-yt-world-canvas]");
+declare global {
+  interface Window {
+    __ytHomeWorldCleanup?: () => void;
+    __ytHomeWorldInit?: () => void;
+  }
+}
 
-if (root && canvas) {
+function initHomeWorld() {
+  const root = document.querySelector<HTMLElement>("[data-yt-world3d]");
+  const canvas = document.querySelector<HTMLCanvasElement>("[data-yt-world-canvas]");
+  if (root?.dataset.ytWorldInitialized === "true") return;
+  window.__ytHomeWorldCleanup?.();
+
+  if (root && canvas) {
+  root.dataset.ytWorldInitialized = "true";
+  const worldRoot = root;
+  const worldCanvas = canvas;
+  const listeners = new AbortController();
+  const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let reducedMotion = motionQuery.matches;
+  let frameId = 0;
+  let navigationTimer = 0;
+  let disposed = false;
   const routes = document.querySelector<HTMLElement>("[data-yt-world-routes]");
   const context = document.querySelector<HTMLElement>("[data-yt-world-context]");
   const reticle = document.querySelector<HTMLElement>("[data-yt-world-reticle]");
   const shell = document.querySelector<HTMLElement>("[data-yt-shell]");
-  const menuTrigger = document.querySelector<HTMLElement>("[data-yt-menu]");
 
   const routeMap: Record<ModuleId, string> = {
     personnel: routes?.dataset.personnel || "/personnel",
@@ -49,7 +68,7 @@ if (root && canvas) {
   const baseTarget = new THREE.Vector3(0, 1.18, 0);
 
   const renderer = new THREE.WebGLRenderer({
-    canvas,
+    canvas: worldCanvas,
     antialias: true,
     powerPreference: "high-performance",
   });
@@ -190,6 +209,17 @@ if (root && canvas) {
     innerRail.position.set(0, 0.56, 0.04);
     group.add(innerRail);
 
+    const accessRack = new THREE.Group();
+    accessRack.position.set(0, 1.46, 0.02);
+    const accessSpine = box(0.16, 1.45, 0.28, metal);
+    accessRack.add(accessSpine);
+    for (const y of [-0.48, 0, 0.48]) {
+      const recordTray = box(0.68, 0.06, 0.42, metalLight);
+      recordTray.position.y = y;
+      accessRack.add(recordTray);
+    }
+    group.add(accessRack);
+
     const light = new THREE.PointLight(0xffdca5, 0.65, 4, 2);
     light.position.set(0, 1.45, 0.55);
     group.add(light);
@@ -203,9 +233,9 @@ if (root && canvas) {
     let open = 0;
     let targetOpen = 0;
     group.userData.anchor = new THREE.Vector3(0, 1.62, 0.46);
-    group.userData.focus = (active) => { focus = active ? 1 : 0; };
+    group.userData.focus = (active: boolean) => { focus = active ? 1 : 0; };
     group.userData.activate = () => { targetOpen = 1; };
-    group.userData.update = (dt, time) => {
+    group.userData.update = (dt: number, time: number) => {
       const t = 1 - Math.pow(0.002, dt);
       open += (targetOpen - open) * t;
       left.position.x = -0.5 - open * 0.34;
@@ -213,7 +243,8 @@ if (root && canvas) {
       left.rotation.y = -open * 0.18;
       right.rotation.y = open * 0.18;
       innerRail.position.z = 0.04 + open * 0.4;
-      warm.emissiveIntensity = 2 + focus * 1.1 + open * 0.8 + Math.sin(time * 1.7) * 0.08;
+      accessRack.position.z = 0.02 + open * 0.3;
+      warm.emissiveIntensity = 2 + focus * 1.1 + open * 0.8 + (reducedMotion ? 0 : Math.sin(time * 1.7) * 0.08);
       light.intensity = 0.55 + focus * 0.65 + open;
     };
     return group;
@@ -221,16 +252,29 @@ if (root && canvas) {
 
   function buildPersonnel() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(-3.75, 0, 0.15);
+    group.position.set(-3.65, 0, 0.3);
     group.rotation.y = 0.08;
 
-    const pedestal = box(1.55, 0.32, 1.0, concreteDark);
+    const pedestal = box(1.68, 0.32, 1.08, concreteDark);
     pedestal.position.y = 0.16;
     group.add(pedestal);
 
-    const back = box(1.1, 2.12, 0.18, concreteDark);
+    const back = box(1.16, 2.12, 0.18, concreteDark);
     back.position.set(0, 1.38, 0);
     group.add(back);
+
+    const cradleLeft = box(0.08, 1.92, 0.34, metal);
+    cradleLeft.position.set(-0.67, 1.27, 0.08);
+    const cradleRight = cradleLeft.clone();
+    cradleRight.position.x = 0.67;
+    const cradleTop = box(1.42, 0.08, 0.34, metal);
+    cradleTop.position.set(0, 2.25, 0.08);
+    group.add(cradleLeft, cradleRight, cradleTop);
+
+    const underSheet = box(0.91, 1.58, 0.025, concreteLight);
+    underSheet.position.set(0.02, 1.48, 0.115);
+    underSheet.rotation.z = 0.018;
+    group.add(underSheet);
 
     const dossier = box(0.86, 1.55, 0.055, concreteLight);
     dossier.position.set(-0.08, 1.52, 0.16);
@@ -242,6 +286,16 @@ if (root && canvas) {
     tab.position.set(0.18, 2.32, 0.18);
     group.add(tab);
 
+    const identityWindow = box(0.5, 0.32, 0.026, glass);
+    identityWindow.position.set(-0.08, 1.3, 0.205);
+    group.add(identityWindow);
+
+    const hingeTop = box(0.1, 0.24, 0.12, metalLight);
+    hingeTop.position.set(-0.52, 1.94, 0.18);
+    const hingeBottom = hingeTop.clone();
+    hingeBottom.position.y = 1.02;
+    group.add(hingeTop, hingeBottom);
+
     for (let i = 0; i < 4; i++) {
       const rule = box(0.56 - i * 0.06, 0.012, 0.018, metal);
       rule.position.set(-0.12, 1.92 - i * 0.18, 0.205);
@@ -251,7 +305,7 @@ if (root && canvas) {
     marker.position.set(-0.38, 2.06, 0.205);
     group.add(marker);
 
-    const hit = hitbox("personnel", 1.55, 2.45, 1.1);
+    const hit = hitbox("personnel", 1.72, 2.5, 1.15);
     hit.position.set(0, 1.35, 0.05);
     group.add(hit);
     contactShadow(group, 2.0, 1.55, 0.17);
@@ -260,9 +314,9 @@ if (root && canvas) {
     let active = 0;
     let target = 0;
     group.userData.anchor = new THREE.Vector3(-0.02, 1.65, 0.3);
-    group.userData.focus = (state) => { focus = state ? 1 : 0; target = state ? 0.35 : 0; };
+    group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.35 : 0; };
     group.userData.activate = () => { target = 1; };
-    group.userData.update = (dt) => {
+    group.userData.update = (dt: number) => {
       active += (target - active) * (1 - Math.pow(0.002, dt));
       dossier.rotation.y = 0.03 - active * 0.34;
       dossier.position.z = 0.16 + active * 0.1;
@@ -273,7 +327,7 @@ if (root && canvas) {
 
   function buildCollections() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(-2.4, 0, -1.25);
+    group.position.set(-2.35, 0, -1.35);
     group.rotation.y = 0.04;
 
     const shell = box(1.45, 1.25, 0.95, concrete);
@@ -283,15 +337,27 @@ if (root && canvas) {
     top.position.y = 1.31;
     group.add(top);
 
-    const drawers: THREE.Mesh[] = [];
+    const drawers: THREE.Group[] = [];
     for (let i = 0; i < 3; i++) {
-      const drawer = box(1.05, 0.25, 0.16, metalLight);
-      drawer.position.set(0, 0.98 - i * 0.33, 0.53);
+      const drawer = new THREE.Group();
+      drawer.position.set(0, 0.98 - i * 0.33, 0.42);
+      const tray = box(1.05, 0.25, 0.42, metalLight);
+      tray.position.z = 0.08;
+      const face = box(1.13, 0.29, 0.08, concreteLight);
+      face.position.z = 0.3;
+      const handle = box(0.24, 0.025, 0.025, metal);
+      handle.position.set(0, 0, 0.36);
+      const labelSlot = box(0.3, 0.08, 0.018, metal);
+      labelSlot.position.set(-0.33, 0, 0.35);
+      drawer.add(tray, face, handle, labelSlot);
       group.add(drawer);
       drawers.push(drawer);
-      const handle = box(0.24, 0.025, 0.025, metal);
-      handle.position.set(0, drawer.position.y, 0.63);
-      group.add(handle);
+    }
+
+    for (const x of [-0.52, 0.52]) {
+      const foot = box(0.18, 0.13, 0.62, concreteDark);
+      foot.position.set(x, 0.065, 0);
+      group.add(foot);
     }
     const point = box(0.05, 0.05, 0.035, red);
     point.position.set(0.5, 0.34, 0.55);
@@ -306,11 +372,11 @@ if (root && canvas) {
     let open = 0;
     let target = 0;
     group.userData.anchor = new THREE.Vector3(0, 0.82, 0.64);
-    group.userData.focus = (state) => { focus = state ? 1 : 0; target = state ? 0.42 : 0; };
+    group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.42 : 0; };
     group.userData.activate = () => { target = 1; };
-    group.userData.update = (dt) => {
+    group.userData.update = (dt: number) => {
       open += (target - open) * (1 - Math.pow(0.002, dt));
-      drawers[1].position.z = 0.53 + open * 0.48;
+      drawers[1].position.z = 0.42 + open * 0.52;
       group.rotation.y += ((0.04 + focus * 0.018) - group.rotation.y) * 0.06;
     };
     return group;
@@ -318,7 +384,7 @@ if (root && canvas) {
 
   function buildCreations() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(3.75, 0, 0.1);
+    group.position.set(3.65, 0, 0.28);
     group.rotation.y = -0.07;
 
     const base = box(1.75, 0.43, 1.02, concrete);
@@ -328,30 +394,50 @@ if (root && canvas) {
     plinth.position.y = 0.68;
     group.add(plinth);
 
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.69, 0.045, 12, 80), metalLight);
-    ring.castShadow = true;
-    ring.position.set(0, 1.59, 0.02);
-    group.add(ring);
-    const inner = new THREE.Mesh(new THREE.TorusGeometry(0.54, 0.018, 10, 64), metal);
-    inner.position.copy(ring.position);
-    group.add(inner);
+    const frameLeft = box(0.09, 1.62, 0.18, metalLight);
+    frameLeft.position.set(-0.79, 1.45, 0);
+    const frameRight = frameLeft.clone();
+    frameRight.position.x = 0.79;
+    const frameTop = box(1.67, 0.09, 0.18, metalLight);
+    frameTop.position.set(0, 2.25, 0);
+    group.add(frameLeft, frameRight, frameTop);
 
-    const rockGeo = new THREE.IcosahedronGeometry(0.37, 2);
-    const positions = rockGeo.attributes.position;
-    for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i), y = positions.getY(i), z = positions.getZ(i);
-      const n = 1 + Math.sin(i * 1.7) * 0.08 + Math.cos(i * 0.91) * 0.045;
-      positions.setXYZ(i, x * n, y * n, z * n);
-    }
-    rockGeo.computeVertexNormals();
-    const rockMat = concrete.clone();
-    rockMat.color.setHex(0xc8c0b4);
-    rockMat.roughness = 0.96;
-    rockMat.bumpScale = 0.04;
-    const artifact = new THREE.Mesh(rockGeo, rockMat);
+    const alignmentRing = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.026, 10, 64), metal);
+    alignmentRing.position.set(0, 1.58, -0.03);
+    group.add(alignmentRing);
+
+    const artifactMaterial = new THREE.MeshStandardMaterial({
+      color: 0xc8c0b4,
+      roughness: 0.68,
+      metalness: 0.14,
+      flatShading: true,
+    });
+    const artifact = new THREE.Mesh(new THREE.OctahedronGeometry(0.4, 1), artifactMaterial);
     artifact.castShadow = true;
-    artifact.position.copy(ring.position);
+    artifact.position.copy(alignmentRing.position);
+    artifact.scale.set(0.82, 1.16, 0.82);
     group.add(artifact);
+
+    const spindle = box(0.07, 0.7, 0.07, metal);
+    spindle.position.set(0, 1.08, -0.02);
+    group.add(spindle);
+
+    const calipers: THREE.Mesh[] = [];
+    for (const [x, y, horizontal] of [
+      [-0.62, 1.58, true],
+      [0.62, 1.58, true],
+      [0, 0.96, false],
+      [0, 2.2, false],
+    ] as const) {
+      const caliper = box(horizontal ? 0.31 : 0.08, horizontal ? 0.08 : 0.31, 0.12, red.clone());
+      caliper.position.set(x, y, 0.08);
+      group.add(caliper);
+      calipers.push(caliper);
+    }
+
+    const gauge = box(0.62, 0.08, 0.16, glass);
+    gauge.position.set(0, 0.55, 0.38);
+    group.add(gauge);
 
     const point = box(0.055, 0.055, 0.035, red);
     point.position.set(0.61, 0.44, 0.54);
@@ -366,16 +452,19 @@ if (root && canvas) {
     let activation = 0;
     let target = 0;
     group.userData.anchor = new THREE.Vector3(0.15, 1.64, 0.55);
-    group.userData.focus = (state) => { focus = state ? 1 : 0; target = state ? 0.32 : 0; };
+    group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.32 : 0; };
     group.userData.activate = () => { target = 1; };
-    group.userData.update = (dt, time) => {
+    group.userData.update = (dt: number, time: number) => {
       activation += (target - activation) * (1 - Math.pow(0.002, dt));
-      artifact.position.y = 1.59 + Math.sin(time * 0.9) * 0.035 + activation * 0.09;
-      artifact.rotation.x += dt * (0.07 + activation * 0.22);
-      artifact.rotation.y += dt * (0.11 + activation * 0.34);
-      ring.rotation.y = activation * 0.34;
-      ring.rotation.z = activation * 0.12;
-      inner.rotation.y = -activation * 0.24;
+      const drift = reducedMotion ? 0 : Math.sin(time * 0.72) * 0.018;
+      artifact.position.y = 1.58 + drift + activation * 0.08;
+      artifact.rotation.x += reducedMotion ? 0 : dt * (0.035 + activation * 0.12);
+      artifact.rotation.y += reducedMotion ? 0 : dt * (0.07 + activation * 0.2);
+      alignmentRing.rotation.y = activation * 0.22;
+      calipers[0].position.x = -0.62 + activation * 0.13;
+      calipers[1].position.x = 0.62 - activation * 0.13;
+      calipers[2].position.y = 0.96 + activation * 0.13;
+      calipers[3].position.y = 2.2 - activation * 0.13;
       group.rotation.y += ((-0.07 - focus * 0.02) - group.rotation.y) * 0.06;
     };
     return group;
@@ -383,25 +472,37 @@ if (root && canvas) {
 
   function buildSites() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(5.5, 1.25, -1.95);
-    group.rotation.y = -0.1;
+    group.position.set(5.0, 2.0, -2.54);
+    group.rotation.y = -0.04;
 
-    const rail = box(0.06, 1.95, 0.08, metal);
-    rail.position.y = 0.97;
-    group.add(rail);
-    const node = box(0.88, 0.82, 0.26, concreteLight);
-    node.position.set(0.47, 1.2, 0.05);
+    const backplate = box(1.34, 1.76, 0.1, concreteDark);
+    backplate.position.set(0.42, 1.16, -0.12);
+    const rail = box(0.08, 1.95, 0.13, metal);
+    rail.position.set(-0.28, 1.16, -0.02);
+    const crossRail = box(1.46, 0.07, 0.13, metal);
+    crossRail.position.set(0.4, 1.16, -0.01);
+    group.add(backplate, rail, crossRail);
+
+    const node = box(0.9, 0.84, 0.28, concreteLight);
+    node.position.set(0.48, 1.2, 0.06);
     group.add(node);
     const glassPanel = box(0.48, 0.16, 0.02, glass);
-    glassPanel.position.set(0.47, 1.36, 0.19);
+    glassPanel.position.set(0.48, 1.36, 0.215);
     group.add(glassPanel);
-    const point = box(0.06, 0.06, 0.035, red);
-    point.position.set(0.03, 1.56, 0.14);
+    const siteSignal = red.clone();
+    const point = box(0.06, 0.06, 0.035, siteSignal);
+    point.position.set(0.03, 1.56, 0.2);
     group.add(point);
     for (let i = 0; i < 3; i++) {
       const slot = box(0.46, 0.025, 0.018, metal);
       slot.position.set(0.47, 1.08 - i * 0.09, 0.2);
       group.add(slot);
+    }
+
+    for (const y of [0.55, 1.77]) {
+      const junction = box(0.2, 0.2, 0.18, metalLight);
+      junction.position.set(-0.28, y, 0.04);
+      group.add(junction);
     }
 
     const hit = hitbox("sites", 1.2, 1.7, 0.65);
@@ -412,13 +513,14 @@ if (root && canvas) {
     let pulse = 0;
     let target = 0;
     group.userData.anchor = new THREE.Vector3(0.48, 1.25, 0.24);
-    group.userData.focus = (state) => { focus = state ? 1 : 0; target = state ? 0.45 : 0; };
+    group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.45 : 0; };
     group.userData.activate = () => { target = 1; };
-    group.userData.update = (dt, time) => {
+    group.userData.update = (dt: number, time: number) => {
       pulse += (target - pulse) * (1 - Math.pow(0.003, dt));
-      red.emissiveIntensity = 0.4 + pulse * 1.1 + Math.sin(time * 2.2) * 0.05;
-      node.position.z = 0.05 + pulse * 0.06;
-      group.rotation.y += ((-0.1 - focus * 0.02) - group.rotation.y) * 0.06;
+      siteSignal.emissiveIntensity = 0.4 + pulse * 1.1 + (reducedMotion ? 0 : Math.sin(time * 2.2) * 0.05);
+      node.position.z = 0.06 + pulse * 0.08;
+      crossRail.scale.x = 1 + pulse * 0.04;
+      group.rotation.y += ((-0.04 - focus * 0.02) - group.rotation.y) * 0.06;
     };
     return group;
   }
@@ -486,8 +588,10 @@ if (root && canvas) {
   }
 
   function setContext(module: ModuleId) {
-    if (!context) return;
-    context.innerHTML = `<small>ARCHIVE WORLD</small><strong>${copyFor(module)}</strong><span>ENTER / OPEN · TAB / MENU</span>`;
+    const title = context?.querySelector<HTMLElement>("strong");
+    if (!title) return;
+    title.dataset.ytCopy = module;
+    title.textContent = copyFor(module);
   }
 
   function setFocus(module: ModuleId) {
@@ -500,6 +604,7 @@ if (root && canvas) {
 
   function worldAnchor(module: ModuleId) {
     const object = objects[module];
+    object.updateWorldMatrix(true, false);
     const local = object.userData.anchor || new THREE.Vector3();
     return local.clone().applyMatrix4(object.matrixWorld);
   }
@@ -507,46 +612,65 @@ if (root && canvas) {
   function project(module: ModuleId) {
     const point = worldAnchor(module).project(camera);
     return {
-      x: (point.x * 0.5 + 0.5) * canvas.clientWidth,
-      y: (-point.y * 0.5 + 0.5) * canvas.clientHeight,
+      x: (point.x * 0.5 + 0.5) * worldCanvas.clientWidth,
+      y: (-point.y * 0.5 + 0.5) * worldCanvas.clientHeight,
     };
   }
 
+  const overlayPositions = new Map<HTMLElement, { x: number; y: number }>();
+  function placeOverlay(element: HTMLElement, x: number, y: number) {
+    const previous = overlayPositions.get(element);
+    if (previous && Math.abs(previous.x - x) < 0.35 && Math.abs(previous.y - y) < 0.35) return;
+    element.style.left = `${x.toFixed(1)}px`;
+    element.style.top = `${y.toFixed(1)}px`;
+    overlayPositions.set(element, { x, y });
+  }
+
   function updateOverlay() {
+    const width = worldCanvas.clientWidth;
+    const height = worldCanvas.clientHeight;
     if (reticle) {
       const p = project(current);
-      reticle.style.left = `${p.x}px`;
-      reticle.style.top = `${p.y}px`;
+      placeOverlay(
+        reticle,
+        THREE.MathUtils.clamp(p.x, 78, Math.max(78, width - 78)),
+        THREE.MathUtils.clamp(p.y, 78, Math.max(78, height - 78)),
+      );
       reticle.classList.add("is-visible");
     }
 
     const offsets: Record<ModuleId, [number, number]> = {
       personnel: [-135, -115],
-      collections: [-120, 75],
+      collections: [-120, 30],
       logs: [-18, -150],
-      creations: [90, -110],
-      sites: [68, -70],
+      creations: [72, 72],
+      sites: [52, -24],
     };
     (Object.keys(labels) as ModuleId[]).forEach((module) => {
       const label = labels[module];
       if (!label) return;
       const p = project(module);
       const [x, y] = offsets[module];
-      label.style.left = `${p.x + x}px`;
-      label.style.top = `${p.y + y}px`;
+      placeOverlay(
+        label,
+        THREE.MathUtils.clamp(p.x + x, 22, Math.max(22, width - 152)),
+        THREE.MathUtils.clamp(p.y + y, 28, Math.max(28, height - 68)),
+      );
     });
   }
 
   function resize() {
-    const width = canvas.clientWidth || window.innerWidth;
-    const height = canvas.clientHeight || window.innerHeight;
+    const width = worldCanvas.clientWidth || window.innerWidth;
+    const height = worldCanvas.clientHeight || window.innerHeight;
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
     renderer.setSize(width, height, false);
+    overlayPositions.clear();
   }
 
   function pointerToNdc(event: PointerEvent) {
-    const rect = canvas.getBoundingClientRect();
+    const rect = worldCanvas.getBoundingClientRect();
     pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
   }
@@ -562,12 +686,12 @@ if (root && canvas) {
     const direction = new THREE.Vector3().subVectors(camera.position, anchor).normalize();
     cameraGoal = anchor.clone().add(direction.multiplyScalar(5.45));
     lookGoal = anchor;
-    root.classList.add("is-activating");
+    worldRoot.classList.add("is-activating");
 
-    window.setTimeout(() => window.location.assign(routeMap[module]), 560);
+    navigationTimer = window.setTimeout(() => window.location.assign(routeMap[module]), reducedMotion ? 140 : 620);
   }
 
-  canvas.addEventListener("pointermove", (event) => {
+  const onPointerMove = (event: PointerEvent) => {
     if (activating || shell?.classList.contains("is-menu-open")) return;
     pointerToNdc(event);
     pointerEase.set(pointer.x, pointer.y);
@@ -578,25 +702,31 @@ if (root && canvas) {
       const module = next?.userData.module as ModuleId | undefined;
       if (module) {
         setFocus(module);
-        canvas.style.cursor = "pointer";
+        worldCanvas.style.cursor = "pointer";
       } else {
-        canvas.style.cursor = "default";
+        worldCanvas.style.cursor = "default";
       }
     }
-  });
+  };
 
-  canvas.addEventListener("pointerdown", (event) => {
+  const onPointerDown = (event: PointerEvent) => {
     if (activating || shell?.classList.contains("is-menu-open")) return;
     pointerToNdc(event);
     raycaster.setFromCamera(pointer, camera);
     const target = raycaster.intersectObjects(interactive, false)[0]?.object;
     const module = target?.userData.module as ModuleId | undefined;
     if (module) navigate(module);
-  });
+  };
+
+  const onPointerLeave = () => {
+    hovered = null;
+    pointerEase.set(0, 0);
+    worldCanvas.style.cursor = "default";
+  };
 
   const focusOrder: ModuleId[] = ["personnel", "collections", "logs", "creations", "sites"];
-  document.addEventListener("keydown", (event) => {
-    if (!root.isConnected || shell?.classList.contains("is-menu-open")) return;
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (!worldRoot.isConnected || shell?.classList.contains("is-menu-open")) return;
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
       event.preventDefault();
       const index = Math.max(0, focusOrder.indexOf(current));
@@ -608,17 +738,58 @@ if (root && canvas) {
     } else if (event.key === "Enter") {
       event.preventDefault();
       navigate(current);
-    } else if (event.key === "Tab") {
-      event.preventDefault();
-      menuTrigger?.click();
     }
-  });
+  };
 
-  window.addEventListener("resize", resize);
+  worldCanvas.addEventListener("pointermove", onPointerMove, { signal: listeners.signal });
+  worldCanvas.addEventListener("pointerdown", onPointerDown, { signal: listeners.signal });
+  worldCanvas.addEventListener("pointerleave", onPointerLeave, { signal: listeners.signal });
+  document.addEventListener("keydown", onKeyDown, { signal: listeners.signal });
+  window.addEventListener("resize", resize, { signal: listeners.signal });
+  motionQuery.addEventListener("change", (event) => { reducedMotion = event.matches; }, { signal: listeners.signal });
+
   resize();
   setFocus("logs");
 
+  const geometries = new Set<THREE.BufferGeometry>();
+  const materials = new Set<THREE.Material>();
+  const textures = new Set<THREE.Texture>();
+
+  function cleanup() {
+    if (disposed) return;
+    disposed = true;
+    window.cancelAnimationFrame(frameId);
+    window.clearTimeout(navigationTimer);
+    listeners.abort();
+    scene.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      geometries.add(child.geometry);
+      const meshMaterials = Array.isArray(child.material) ? child.material : [child.material];
+      meshMaterials.forEach((material) => {
+        materials.add(material);
+        Object.values(material).forEach((value) => {
+          if (value instanceof THREE.Texture) textures.add(value);
+        });
+      });
+    });
+    geometries.forEach((geometry) => geometry.dispose());
+    textures.forEach((texture) => texture.dispose());
+    materials.forEach((material) => material.dispose());
+    renderer.renderLists.dispose();
+    renderer.dispose();
+    delete worldRoot.dataset.ytWorldInitialized;
+    if (window.__ytHomeWorldCleanup === cleanup) delete window.__ytHomeWorldCleanup;
+  }
+
+  window.__ytHomeWorldCleanup = cleanup;
+  document.addEventListener("astro:before-swap", cleanup, { once: true, signal: listeners.signal });
+
   function frame() {
+    if (disposed) return;
+    if (!worldRoot.isConnected) {
+      cleanup();
+      return;
+    }
     const dt = Math.min(clock.getDelta(), 0.04);
     const paused = shell?.classList.contains("is-menu-open") || shell?.classList.contains("is-settings-open");
     if (!paused) elapsed += dt;
@@ -627,14 +798,24 @@ if (root && canvas) {
       Object.values(objects).forEach((object) => object.userData.update?.(dt, elapsed));
     }
 
-    const desired = cameraGoal || baseCamera.clone().add(new THREE.Vector3(pointerEase.x * 0.18, pointerEase.y * 0.08, 0));
+    const focusAnchor = worldAnchor(current);
+    const parallax = reducedMotion ? 0 : 1;
+    const focusCamera = baseCamera.clone().add(new THREE.Vector3(focusAnchor.x * 0.025, (focusAnchor.y - 1.2) * 0.018, 0));
+    const desired = cameraGoal || focusCamera.add(new THREE.Vector3(pointerEase.x * 0.16 * parallax, pointerEase.y * 0.07 * parallax, 0));
     camera.position.lerp(desired, 1 - Math.pow(0.002, dt));
-    const target = lookGoal || baseTarget.clone().add(new THREE.Vector3(pointerEase.x * 0.1, pointerEase.y * 0.05, 0));
+    const focusTarget = baseTarget.clone().lerp(focusAnchor, 0.055);
+    const target = lookGoal || focusTarget.add(new THREE.Vector3(pointerEase.x * 0.08 * parallax, pointerEase.y * 0.035 * parallax, 0));
     camera.lookAt(target);
 
     updateOverlay();
     renderer.render(scene, camera);
-    requestAnimationFrame(frame);
+    frameId = window.requestAnimationFrame(frame);
   }
   frame();
+  }
 }
+
+if (window.__ytHomeWorldInit) document.removeEventListener("astro:page-load", window.__ytHomeWorldInit);
+window.__ytHomeWorldInit = initHomeWorld;
+document.addEventListener("astro:page-load", initHomeWorld);
+initHomeWorld();

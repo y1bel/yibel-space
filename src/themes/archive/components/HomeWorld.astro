@@ -1,25 +1,15 @@
 ---
-import { getMessages, localeMessages } from "@core/i18n";
+import { getMessages } from "@core/i18n";
 import { systemNavigation } from "@core/navigation";
 
 const copy = getMessages();
 const hrefFor = Object.fromEntries(systemNavigation.map((item) => [item.id, item.href])) as Record<string, string>;
-const worldMessages = {
-  "en-US": {
-    archiveWorld: localeMessages["en-US"].archiveWorld,
-    worldOpenHint: localeMessages["en-US"].worldOpenHint,
-  },
-  "zh-CN": {
-    archiveWorld: localeMessages["zh-CN"].archiveWorld,
-    worldOpenHint: localeMessages["zh-CN"].worldOpenHint,
-  },
-};
 ---
 
 <style is:global>@import "../styles/home-world.css";</style>
 
 <section class="yt-world3d" data-yt-world3d>
-  <canvas class="yt-world3d__canvas" data-yt-world-canvas aria-label="Yibel Space archive world"></canvas>
+  <canvas class="yt-world3d__canvas" data-yt-world-canvas aria-label={copy.archiveWorld} aria-describedby="yt-world-instructions"></canvas>
 
   <div class="yt-world3d__brand" aria-hidden="true">
     <i></i><span>YIBEL SPACE</span><b></b>
@@ -45,7 +35,7 @@ const worldMessages = {
     <span></span><span></span><span></span><span></span><i></i>
   </div>
 
-  <div class="yt-world3d__context" data-yt-world-context>
+  <div class="yt-world3d__context" data-yt-world-context id="yt-world-instructions">
     <small data-yt-copy="archiveWorld">{copy.archiveWorld}</small>
     <strong data-yt-copy="logs">{copy.logs}</strong>
     <span data-yt-copy="worldOpenHint">{copy.worldOpenHint}</span>
@@ -64,27 +54,4 @@ const worldMessages = {
 
 <script>
   import "../interactions/home-world";
-</script>
-
-<script is:inline define:vars={{ worldMessages }}>
-  const worldContext = document.querySelector("[data-yt-world-context]");
-  const syncWorldCopy = () => {
-    if (!worldContext) return;
-    const locale = document.documentElement.lang === "en-US" ? "en-US" : "zh-CN";
-    const dictionary = worldMessages[locale];
-    const eyebrow = worldContext.querySelector("small");
-    const title = worldContext.querySelector("strong");
-    const hint = worldContext.querySelector("span");
-    const activeWorldLabel = document.querySelector("[data-yt-world-label].is-active strong");
-    if (eyebrow && eyebrow.textContent !== dictionary.archiveWorld) eyebrow.textContent = dictionary.archiveWorld;
-    if (title && activeWorldLabel && title.textContent !== activeWorldLabel.textContent) title.textContent = activeWorldLabel.textContent;
-    if (hint && hint.textContent !== dictionary.worldOpenHint) hint.textContent = dictionary.worldOpenHint;
-  };
-  if (worldContext) {
-    const contextObserver = new MutationObserver(syncWorldCopy);
-    contextObserver.observe(worldContext, { childList: true, subtree: true });
-    const localeObserver = new MutationObserver(syncWorldCopy);
-    localeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
-    syncWorldCopy();
-  }
 </script>
