@@ -229,32 +229,12 @@ function initHomeWorld() {
     }
     group.add(accessRack);
 
-    const pyramidRig = new THREE.Group();
-    pyramidRig.position.set(0, 3.48, 0.02);
-    const pyramidMaterial = new THREE.MeshStandardMaterial({
-      color: 0x35322e,
-      roughness: 0.48,
-      metalness: 0.32,
-    });
-    const pyramid = new THREE.Mesh(new THREE.ConeGeometry(0.66, 0.78, 4, 1, false, Math.PI / 4), pyramidMaterial);
-    pyramid.rotation.z = Math.PI;
-    pyramid.castShadow = true;
-    const pyramidCap = box(0.94, 0.045, 0.94, red.clone());
-    pyramidCap.position.y = 0.39;
-    pyramidCap.rotation.y = Math.PI / 4;
-    pyramidRig.add(pyramid, pyramidCap);
-    group.add(pyramidRig);
-
-    const suspension = box(0.025, 0.48, 0.025, red.clone());
-    suspension.position.set(0, 2.87, 0.05);
-    group.add(suspension);
-
     const light = new THREE.PointLight(0xffdca5, 0.65, 4, 2);
     light.position.set(0, 1.45, 0.55);
     group.add(light);
 
-    const hit = hitbox("logs", 2.7, 4.1, 1.4);
-    hit.position.set(0, 2.02, 0.04);
+    const hit = hitbox("logs", 2.65, 2.8, 1.4);
+    hit.position.set(0, 1.45, 0.04);
     group.add(hit);
     contactShadow(group, 3.5, 2.2, 0.22);
 
@@ -275,9 +255,6 @@ function initHomeWorld() {
       right.rotation.y = open * 0.18;
       innerRail.position.z = 0.04 + open * 0.4;
       accessRack.position.z = 0.02 + open * 0.3;
-      pyramidRig.position.y = 3.48 - focusResponse * 0.11 - open * 0.2;
-      pyramidRig.rotation.y = (reducedMotion ? 0 : time * 0.018) + focusResponse * 0.08;
-      suspension.scale.y = 1 + focusResponse * 0.16 + open * 0.35;
       warm.emissiveIntensity = 1.85 + focusResponse * 1.15 + open * 0.8 + (reducedMotion ? 0 : Math.sin(time * 1.7) * 0.06);
       light.intensity = 0.5 + focusResponse * 0.62 + open;
     };
@@ -661,6 +638,79 @@ function initHomeWorld() {
     lintel.position.set(-0.32, 5.68, -2.76);
     lintel.castShadow = false;
     scene.add(serviceLine, wallControlLine, lintel);
+
+    const monument = new THREE.Group();
+    monument.position.set(1.82, 3.32, -1.92);
+    monument.rotation.y = -0.16;
+
+    const monumentMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x292622,
+      roughness: 0.32,
+      metalness: 0.68,
+      clearcoat: 0.5,
+      clearcoatRoughness: 0.25,
+      bumpMap: noise,
+      bumpScale: 0.012,
+    });
+    const monumentGeometry = new THREE.ConeGeometry(0.86, 1.08, 4, 1, false, Math.PI / 4);
+    const invertedPyramid = new THREE.Mesh(monumentGeometry, monumentMaterial);
+    invertedPyramid.rotation.z = Math.PI;
+    invertedPyramid.castShadow = true;
+    monument.add(invertedPyramid);
+
+    const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xb52b32, transparent: true, opacity: 0.72 });
+    const pyramidEdges = new THREE.LineSegments(new THREE.EdgesGeometry(monumentGeometry, 18), edgeMaterial);
+    pyramidEdges.rotation.copy(invertedPyramid.rotation);
+    pyramidEdges.scale.setScalar(1.006);
+    monument.add(pyramidEdges);
+
+    const facePanelGeometry = new THREE.BufferGeometry();
+    facePanelGeometry.setAttribute("position", new THREE.Float32BufferAttribute([
+      -0.49, 0.42, 0.615,
+      0.49, 0.42, 0.615,
+      0, -0.43, 0.015,
+    ], 3));
+    facePanelGeometry.computeVertexNormals();
+    const facePanel = new THREE.Mesh(facePanelGeometry, new THREE.MeshPhysicalMaterial({
+      color: 0x423c35,
+      roughness: 0.25,
+      metalness: 0.74,
+      clearcoat: 0.35,
+      side: THREE.DoubleSide,
+    }));
+    monument.add(facePanel);
+
+    const strata = [
+      { y: 0.48, size: 1.24, material: metal },
+      { y: 0.25, size: 0.88, material: red.clone() },
+      { y: 0.02, size: 0.51, material: metalLight },
+    ];
+    strata.forEach(({ y, size, material }, index) => {
+      const plate = box(size, index === 1 ? 0.028 : 0.018, size, material);
+      plate.position.y = y;
+      plate.rotation.y = Math.PI / 4;
+      monument.add(plate);
+    });
+
+    const gantry = box(2.36, 0.075, 0.14, metal);
+    gantry.position.set(0, 1.47, -0.72);
+    const gantryNode = box(0.18, 0.16, 0.2, red.clone());
+    gantryNode.position.set(-0.84, 1.47, -0.66);
+    monument.add(gantry, gantryNode);
+
+    const cableGeometry = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-0.84, 1.43, -0.66), new THREE.Vector3(-0.61, 0.52, -0.02),
+      new THREE.Vector3(0.84, 1.43, -0.66), new THREE.Vector3(0.61, 0.52, -0.02),
+      new THREE.Vector3(-0.28, 1.43, -0.69), new THREE.Vector3(-0.28, 0.52, -0.42),
+      new THREE.Vector3(0.28, 1.43, -0.69), new THREE.Vector3(0.28, 0.52, -0.42),
+    ]);
+    const cables = new THREE.LineSegments(
+      cableGeometry,
+      new THREE.LineBasicMaterial({ color: 0x5f5a52, transparent: true, opacity: 0.82 }),
+    );
+    monument.add(cables);
+
+    scene.add(monument);
   }
 
   buildEnvironment();
@@ -737,7 +787,7 @@ function initHomeWorld() {
     const offsets: Record<ModuleId, [number, number]> = {
       personnel: [-135, -115],
       collections: [-112, 42],
-      logs: [-150, -132],
+      logs: [-96, -112],
       creations: [68, 72],
       sites: [-170, 5],
     };
