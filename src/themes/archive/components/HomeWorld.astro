@@ -73,9 +73,12 @@ const worldMessages = {
     const locale = document.documentElement.lang === "en-US" ? "en-US" : "zh-CN";
     const dictionary = worldMessages[locale];
     const eyebrow = worldContext.querySelector("small");
+    const title = worldContext.querySelector("strong");
     const hint = worldContext.querySelector("span");
-    if (eyebrow) eyebrow.textContent = dictionary.archiveWorld;
-    if (hint) hint.textContent = dictionary.worldOpenHint;
+    const activeWorldLabel = document.querySelector("[data-yt-world-label].is-active strong");
+    if (eyebrow && eyebrow.textContent !== dictionary.archiveWorld) eyebrow.textContent = dictionary.archiveWorld;
+    if (title && activeWorldLabel && title.textContent !== activeWorldLabel.textContent) title.textContent = activeWorldLabel.textContent;
+    if (hint && hint.textContent !== dictionary.worldOpenHint) hint.textContent = dictionary.worldOpenHint;
   };
   if (worldContext) {
     const contextObserver = new MutationObserver(syncWorldCopy);
