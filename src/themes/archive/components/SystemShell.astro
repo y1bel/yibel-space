@@ -53,9 +53,9 @@ const menu = systemNavigation.map((item) => ({ ...item, label: copy[item.id] }))
   {(entry || home) && <div class="yt-hud" aria-label="System information"><span class="yt-hud__weather">{archiveSystemConfig.hud.weather}</span><span class="yt-hud__region">{archiveSystemConfig.hud.region}</span><span class="yt-hud__network"><i></i>{archiveSystemConfig.hud.network}</span><button type="button" data-yt-settings aria-label="Open system settings"><span aria-hidden="true">⚙</span><kbd>S</kbd></button><time data-yt-clock>{archiveSystemConfig.hud.clock}</time></div>}
 
   <aside class="yt-terminal__menu" id="yt-system-menu" aria-hidden={workspace ? "false" : "true"}>
-    <div class="yt-terminal__menu-top"><span>{code} / MAIN MENU</span><button type="button" data-yt-menu-close data-yt-copy="closeMenu">{copy.closeMenu}</button></div>
+    <div class="yt-terminal__menu-top"><span>YIBEL SPACE / SYSTEM</span><button type="button" data-yt-menu-close data-yt-copy="closeMenu">{copy.closeMenu}</button></div>
     <div class="yt-terminal__menu-links">
-      {menu.map((item) => <a class:list={{ "is-active": active === item.id }} href={item.href}><b data-yt-copy={item.id}>{item.label}</b></a>)}
+      {menu.map((item) => <a class:list={{ "is-active": active === item.id }} href={item.href} data-yt-menu-link data-yt-module={item.id}><b data-yt-copy={item.id}>{item.label}</b></a>)}
     </div>
   </aside>
 
@@ -73,6 +73,7 @@ const menu = systemNavigation.map((item) => ({ ...item, label: copy[item.id] }))
   const trigger = document.querySelector("[data-yt-menu]");
   const menu = document.querySelector("#yt-system-menu");
   const menuClose = document.querySelector("[data-yt-menu-close]");
+  const menuLinks = Array.from(document.querySelectorAll("[data-yt-menu-link]"));
   const settingsTrigger = document.querySelector("[data-yt-settings]");
   const settings = document.querySelector("[data-yt-settings-panel]");
   const settingsClose = document.querySelector("[data-yt-settings-close]");
@@ -81,20 +82,30 @@ const menu = systemNavigation.map((item) => ({ ...item, label: copy[item.id] }))
   const entryTarget = shell?.getAttribute("data-yt-entry-target");
   const progress = document.querySelector("[data-yt-progress]");
   const progressValue = document.querySelector("[data-yt-progress-value]");
+  const lastModuleKey = "yibel-last-module";
   let loading = false;
+
+  const restoreMenuSelection = () => {
+    if (!isHome) return;
+    const lastModule = localStorage.getItem(lastModuleKey) || "personnel";
+    menuLinks.forEach((link) => link.classList.toggle("is-active", link.getAttribute("data-yt-module") === lastModule));
+  };
 
   const setMenu = (open) => {
     const next = isWorkspace ? true : open;
+    if (next) restoreMenuSelection();
     shell?.classList.toggle("is-menu-open", next);
     trigger?.setAttribute("aria-expanded", String(next));
     menu?.setAttribute("aria-hidden", String(!next));
     document.body.classList.toggle("yt-scroll-lock", !isWorkspace && (next || shell?.classList.contains("is-settings-open")));
   };
+
   const setSettings = (open) => {
     shell?.classList.toggle("is-settings-open", open);
     settings?.setAttribute("aria-hidden", String(!open));
     document.body.classList.toggle("yt-scroll-lock", open || shell?.classList.contains("is-menu-open"));
   };
+
   const applyLocale = (locale) => {
     const dictionary = messages[locale] || messages[initialLocale];
     document.documentElement.lang = locale;
@@ -104,6 +115,7 @@ const menu = systemNavigation.map((item) => ({ ...item, label: copy[item.id] }))
     });
     localStorage.setItem("yibel-locale", locale);
   };
+
   const runLoading = () => {
     if (loading || !isEntry) return;
     loading = true;
@@ -125,20 +137,31 @@ const menu = systemNavigation.map((item) => ({ ...item, label: copy[item.id] }))
   begin?.addEventListener("click", runLoading);
   trigger?.addEventListener("click", () => setMenu(!shell?.classList.contains("is-menu-open")));
   menuClose?.addEventListener("click", () => setMenu(false));
+  menuLinks.forEach((link) => link.addEventListener("click", () => {
+    const module = link.getAttribute("data-yt-module");
+    if (module) localStorage.setItem(lastModuleKey, module);
+  }));
   settingsTrigger?.addEventListener("click", () => setSettings(true));
   settingsClose?.addEventListener("click", () => setSettings(false));
   localeButton?.addEventListener("click", () => applyLocale(document.documentElement.lang === "zh-CN" ? "en-US" : "zh-CN"));
+
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Tab" && isHome) {
+      event.preventDefault();
+      setMenu(!shell?.classList.contains("is-menu-open"));
+      return;
+    }
     if (event.key === "Escape") { setMenu(false); setSettings(false); }
     if (event.key.toLowerCase() === "s" && !shell?.classList.contains("is-entry-loading")) setSettings(true);
-    if (event.key.toLowerCase() === "m" && !isEntry && !isWorkspace) setMenu(!shell?.classList.contains("is-menu-open"));
     if (event.key.toLowerCase() === "g" && isWorkspace) window.location.assign("/home");
-    if (event.key === "Enter") {
-      if (isEntry) runLoading();
-      else if (isHome) window.location.assign("/personnel");
-    }
+    if (event.key === "Enter" && isEntry) runLoading();
   });
-  const renderClock = () => { const clock = document.querySelector("[data-yt-clock]"); if (clock) clock.textContent = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date()); };
-  renderClock(); window.setInterval(renderClock, 1000);
+
+  const renderClock = () => {
+    const clock = document.querySelector("[data-yt-clock]");
+    if (clock) clock.textContent = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date());
+  };
+  renderClock();
+  window.setInterval(renderClock, 1000);
   if (isWorkspace || (!isEntry && new URLSearchParams(window.location.search).get("menu") === "1")) setMenu(true);
 </script>
