@@ -62,17 +62,17 @@ function initHomeWorld() {
   scene.background = new THREE.Color(0xe9e5dc);
   scene.fog = new THREE.Fog(0xe9e5dc, 10, 24);
 
-  const camera = new THREE.PerspectiveCamera(37, 1, 0.1, 50);
-  camera.position.set(0, 3.15, 9.15);
+  const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 50);
+  camera.position.set(0.24, 3.12, 9.45);
   const baseCamera = camera.position.clone();
-  const baseTarget = new THREE.Vector3(0, 1.18, 0);
+  const baseTarget = new THREE.Vector3(0, 1.36, -0.18);
 
   const renderer = new THREE.WebGLRenderer({
     canvas: worldCanvas,
     antialias: true,
     powerPreference: "high-performance",
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.35));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.08;
@@ -175,7 +175,8 @@ function initHomeWorld() {
 
   function buildLogs() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(0, 0, -0.15);
+    group.position.set(0.08, 0, -0.42);
+    group.rotation.y = -0.025;
     const base = box(3.05, 0.18, 1.72, concreteDark);
     base.position.y = 0.09;
     const plinth = box(2.55, 0.24, 1.28, concrete);
@@ -189,6 +190,14 @@ function initHomeWorld() {
     right.position.x = 0.5;
     right.rotation.z = 0.09;
     group.add(left, right);
+
+    for (const y of [1.02, 1.48, 1.94]) {
+      const bandLeft = box(0.32, 0.035, 0.025, metal);
+      bandLeft.position.set(-0.5, y, 0.375);
+      const bandRight = bandLeft.clone();
+      bandRight.position.x = 0.5;
+      group.add(bandLeft, bandRight);
+    }
 
     const sideL = box(0.31, 1.72, 0.84, concreteDark);
     sideL.position.set(-0.99, 1.14, 0.02);
@@ -220,23 +229,45 @@ function initHomeWorld() {
     }
     group.add(accessRack);
 
+    const pyramidRig = new THREE.Group();
+    pyramidRig.position.set(0, 3.48, 0.02);
+    const pyramidMaterial = new THREE.MeshStandardMaterial({
+      color: 0x35322e,
+      roughness: 0.48,
+      metalness: 0.32,
+    });
+    const pyramid = new THREE.Mesh(new THREE.ConeGeometry(0.66, 0.78, 4, 1, false, Math.PI / 4), pyramidMaterial);
+    pyramid.rotation.z = Math.PI;
+    pyramid.castShadow = true;
+    const pyramidCap = box(0.94, 0.045, 0.94, red.clone());
+    pyramidCap.position.y = 0.39;
+    pyramidCap.rotation.y = Math.PI / 4;
+    pyramidRig.add(pyramid, pyramidCap);
+    group.add(pyramidRig);
+
+    const suspension = box(0.025, 0.48, 0.025, red.clone());
+    suspension.position.set(0, 2.87, 0.05);
+    group.add(suspension);
+
     const light = new THREE.PointLight(0xffdca5, 0.65, 4, 2);
     light.position.set(0, 1.45, 0.55);
     group.add(light);
 
-    const hit = hitbox("logs", 2.55, 2.75, 1.35);
-    hit.position.set(0, 1.4, 0.04);
+    const hit = hitbox("logs", 2.7, 4.1, 1.4);
+    hit.position.set(0, 2.02, 0.04);
     group.add(hit);
     contactShadow(group, 3.5, 2.2, 0.22);
 
     let focus = 0;
+    let focusResponse = 0;
     let open = 0;
     let targetOpen = 0;
     group.userData.anchor = new THREE.Vector3(0, 1.62, 0.46);
     group.userData.focus = (active: boolean) => { focus = active ? 1 : 0; };
     group.userData.activate = () => { targetOpen = 1; };
     group.userData.update = (dt: number, time: number) => {
-      const t = 1 - Math.pow(0.002, dt);
+      const t = 1 - Math.pow(0.00004, dt);
+      focusResponse += (focus - focusResponse) * t;
       open += (targetOpen - open) * t;
       left.position.x = -0.5 - open * 0.34;
       right.position.x = 0.5 + open * 0.34;
@@ -244,16 +275,19 @@ function initHomeWorld() {
       right.rotation.y = open * 0.18;
       innerRail.position.z = 0.04 + open * 0.4;
       accessRack.position.z = 0.02 + open * 0.3;
-      warm.emissiveIntensity = 2 + focus * 1.1 + open * 0.8 + (reducedMotion ? 0 : Math.sin(time * 1.7) * 0.08);
-      light.intensity = 0.55 + focus * 0.65 + open;
+      pyramidRig.position.y = 3.48 - focusResponse * 0.11 - open * 0.2;
+      pyramidRig.rotation.y = (reducedMotion ? 0 : time * 0.018) + focusResponse * 0.08;
+      suspension.scale.y = 1 + focusResponse * 0.16 + open * 0.35;
+      warm.emissiveIntensity = 1.85 + focusResponse * 1.15 + open * 0.8 + (reducedMotion ? 0 : Math.sin(time * 1.7) * 0.06);
+      light.intensity = 0.5 + focusResponse * 0.62 + open;
     };
     return group;
   }
 
   function buildPersonnel() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(-3.65, 0, 0.3);
-    group.rotation.y = 0.08;
+    group.position.set(-3.85, 0, 0.78);
+    group.rotation.y = 0.16;
 
     const pedestal = box(1.68, 0.32, 1.08, concreteDark);
     pedestal.position.y = 0.16;
@@ -276,19 +310,22 @@ function initHomeWorld() {
     underSheet.rotation.z = 0.018;
     group.add(underSheet);
 
+    const dossierHinge = new THREE.Group();
+    dossierHinge.position.set(-0.52, 1.52, 0.16);
+    dossierHinge.rotation.z = -0.025;
+    group.add(dossierHinge);
+
     const dossier = box(0.86, 1.55, 0.055, concreteLight);
-    dossier.position.set(-0.08, 1.52, 0.16);
-    dossier.rotation.z = -0.025;
-    dossier.rotation.y = 0.03;
-    group.add(dossier);
+    dossier.position.x = 0.44;
+    dossierHinge.add(dossier);
 
     const tab = box(0.22, 0.08, 0.065, metalLight);
-    tab.position.set(0.18, 2.32, 0.18);
-    group.add(tab);
+    tab.position.set(0.7, 0.8, 0.02);
+    dossierHinge.add(tab);
 
     const identityWindow = box(0.5, 0.32, 0.026, glass);
-    identityWindow.position.set(-0.08, 1.3, 0.205);
-    group.add(identityWindow);
+    identityWindow.position.set(0.44, -0.22, 0.045);
+    dossierHinge.add(identityWindow);
 
     const hingeTop = box(0.1, 0.24, 0.12, metalLight);
     hingeTop.position.set(-0.52, 1.94, 0.18);
@@ -298,12 +335,12 @@ function initHomeWorld() {
 
     for (let i = 0; i < 4; i++) {
       const rule = box(0.56 - i * 0.06, 0.012, 0.018, metal);
-      rule.position.set(-0.12, 1.92 - i * 0.18, 0.205);
-      group.add(rule);
+      rule.position.set(0.4, 0.4 - i * 0.18, 0.045);
+      dossierHinge.add(rule);
     }
     const marker = box(0.055, 0.055, 0.035, red);
-    marker.position.set(-0.38, 2.06, 0.205);
-    group.add(marker);
+    marker.position.set(0.14, 0.54, 0.045);
+    dossierHinge.add(marker);
 
     const hit = hitbox("personnel", 1.72, 2.5, 1.15);
     hit.position.set(0, 1.35, 0.05);
@@ -317,18 +354,18 @@ function initHomeWorld() {
     group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.35 : 0; };
     group.userData.activate = () => { target = 1; };
     group.userData.update = (dt: number) => {
-      active += (target - active) * (1 - Math.pow(0.002, dt));
-      dossier.rotation.y = 0.03 - active * 0.34;
-      dossier.position.z = 0.16 + active * 0.1;
-      group.rotation.y += ((0.08 + focus * 0.025) - group.rotation.y) * 0.06;
+      active += (target - active) * (1 - Math.pow(0.00004, dt));
+      dossierHinge.rotation.y = -active * 0.42;
+      dossierHinge.position.z = 0.16 + active * 0.08;
+      group.rotation.y += ((0.16 + focus * 0.035) - group.rotation.y) * (1 - Math.pow(0.00004, dt));
     };
     return group;
   }
 
   function buildCollections() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(-2.35, 0, -1.35);
-    group.rotation.y = 0.04;
+    group.position.set(-2.12, 0, -1.82);
+    group.rotation.y = -0.08;
 
     const shell = box(1.45, 1.25, 0.95, concrete);
     shell.position.y = 0.64;
@@ -350,6 +387,14 @@ function initHomeWorld() {
       const labelSlot = box(0.3, 0.08, 0.018, metal);
       labelSlot.position.set(-0.33, 0, 0.35);
       drawer.add(tray, face, handle, labelSlot);
+      if (i === 1) {
+        const storedFile = box(0.72, 0.035, 0.26, concreteLight);
+        storedFile.position.set(0.08, 0.15, 0.04);
+        storedFile.rotation.y = -0.05;
+        const storedMarker = box(0.08, 0.04, 0.06, red.clone());
+        storedMarker.position.set(-0.22, 0.19, 0.12);
+        drawer.add(storedFile, storedMarker);
+      }
       group.add(drawer);
       drawers.push(drawer);
     }
@@ -375,17 +420,17 @@ function initHomeWorld() {
     group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.42 : 0; };
     group.userData.activate = () => { target = 1; };
     group.userData.update = (dt: number) => {
-      open += (target - open) * (1 - Math.pow(0.002, dt));
+      open += (target - open) * (1 - Math.pow(0.00004, dt));
       drawers[1].position.z = 0.42 + open * 0.52;
-      group.rotation.y += ((0.04 + focus * 0.018) - group.rotation.y) * 0.06;
+      group.rotation.y += ((-0.08 + focus * 0.032) - group.rotation.y) * (1 - Math.pow(0.00004, dt));
     };
     return group;
   }
 
   function buildCreations() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(3.65, 0, 0.28);
-    group.rotation.y = -0.07;
+    group.position.set(3.58, 0, 0.72);
+    group.rotation.y = -0.14;
 
     const base = box(1.75, 0.43, 1.02, concrete);
     base.position.y = 0.215;
@@ -412,10 +457,18 @@ function initHomeWorld() {
       metalness: 0.14,
       flatShading: true,
     });
-    const artifact = new THREE.Mesh(new THREE.OctahedronGeometry(0.4, 1), artifactMaterial);
-    artifact.castShadow = true;
+    const artifact = new THREE.Group();
     artifact.position.copy(alignmentRing.position);
-    artifact.scale.set(0.82, 1.16, 0.82);
+    const artifactBody = new THREE.Mesh(new THREE.OctahedronGeometry(0.4, 1), artifactMaterial);
+    artifactBody.scale.set(0.82, 1.16, 0.82);
+    artifactBody.castShadow = true;
+    const datumHorizontal = box(0.72, 0.025, 0.07, metalLight);
+    datumHorizontal.position.z = 0.12;
+    const datumVertical = box(0.025, 0.82, 0.07, metalLight);
+    datumVertical.position.z = 0.12;
+    const artifactCore = box(0.12, 0.12, 0.12, red.clone());
+    artifactCore.position.z = 0.34;
+    artifact.add(artifactBody, datumHorizontal, datumVertical, artifactCore);
     group.add(artifact);
 
     const spindle = box(0.07, 0.7, 0.07, metal);
@@ -439,6 +492,16 @@ function initHomeWorld() {
     gauge.position.set(0, 0.55, 0.38);
     group.add(gauge);
 
+    const designBed = box(1.02, 0.06, 0.48, concreteLight);
+    designBed.position.set(0, 0.84, 0.18);
+    designBed.rotation.x = -0.16;
+    group.add(designBed);
+    for (let i = -3; i <= 3; i++) {
+      const measure = box(0.018, 0.08 + (i % 2 === 0 ? 0.05 : 0), 0.018, metal);
+      measure.position.set(i * 0.18, 2.15, 0.11);
+      group.add(measure);
+    }
+
     const point = box(0.055, 0.055, 0.035, red);
     point.position.set(0.61, 0.44, 0.54);
     group.add(point);
@@ -455,7 +518,7 @@ function initHomeWorld() {
     group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.32 : 0; };
     group.userData.activate = () => { target = 1; };
     group.userData.update = (dt: number, time: number) => {
-      activation += (target - activation) * (1 - Math.pow(0.002, dt));
+      activation += (target - activation) * (1 - Math.pow(0.00004, dt));
       const drift = reducedMotion ? 0 : Math.sin(time * 0.72) * 0.018;
       artifact.position.y = 1.58 + drift + activation * 0.08;
       artifact.rotation.x += reducedMotion ? 0 : dt * (0.035 + activation * 0.12);
@@ -465,15 +528,15 @@ function initHomeWorld() {
       calipers[1].position.x = 0.62 - activation * 0.13;
       calipers[2].position.y = 0.96 + activation * 0.13;
       calipers[3].position.y = 2.2 - activation * 0.13;
-      group.rotation.y += ((-0.07 - focus * 0.02) - group.rotation.y) * 0.06;
+      group.rotation.y += ((-0.14 - focus * 0.035) - group.rotation.y) * (1 - Math.pow(0.00004, dt));
     };
     return group;
   }
 
   function buildSites() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(5.0, 2.0, -2.54);
-    group.rotation.y = -0.04;
+    group.position.set(4.82, 2.15, -2.62);
+    group.rotation.y = -0.06;
 
     const backplate = box(1.34, 1.76, 0.1, concreteDark);
     backplate.position.set(0.42, 1.16, -0.12);
@@ -505,6 +568,12 @@ function initHomeWorld() {
       group.add(junction);
     }
 
+    const outboundRail = box(1.35, 0.055, 0.08, metal);
+    outboundRail.position.set(1.5, 1.78, -0.03);
+    const outboundSignal = box(0.07, 0.12, 0.1, siteSignal);
+    outboundSignal.position.set(2.17, 1.78, -0.01);
+    group.add(outboundRail, outboundSignal);
+
     const hit = hitbox("sites", 1.2, 1.7, 0.65);
     hit.position.set(0.45, 1.2, 0.04);
     group.add(hit);
@@ -516,11 +585,11 @@ function initHomeWorld() {
     group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.45 : 0; };
     group.userData.activate = () => { target = 1; };
     group.userData.update = (dt: number, time: number) => {
-      pulse += (target - pulse) * (1 - Math.pow(0.003, dt));
+      pulse += (target - pulse) * (1 - Math.pow(0.00004, dt));
       siteSignal.emissiveIntensity = 0.4 + pulse * 1.1 + (reducedMotion ? 0 : Math.sin(time * 2.2) * 0.05);
       node.position.z = 0.06 + pulse * 0.08;
       crossRail.scale.x = 1 + pulse * 0.04;
-      group.rotation.y += ((-0.04 - focus * 0.02) - group.rotation.y) * 0.06;
+      group.rotation.y += ((-0.06 - focus * 0.035) - group.rotation.y) * (1 - Math.pow(0.00004, dt));
     };
     return group;
   }
@@ -530,7 +599,7 @@ function initHomeWorld() {
     const key = new THREE.DirectionalLight(0xfff8e8, 3.1);
     key.position.set(-3, 8, 5);
     key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.mapSize.set(1024, 1024);
     key.shadow.camera.left = -8;
     key.shadow.camera.right = 8;
     key.shadow.camera.top = 7;
@@ -554,25 +623,44 @@ function initHomeWorld() {
     wall.receiveShadow = true;
     scene.add(wall);
 
-    const centerPanel = box(5.2, 6.9, 0.14, concreteLight.clone());
+    const centerPanel = box(4.8, 6.9, 0.14, concreteLight.clone());
     (centerPanel.material as THREE.MeshStandardMaterial).color.setHex(0xece8df);
-    centerPanel.position.set(0, 3.45, -2.91);
+    centerPanel.position.set(-0.34, 3.45, -2.91);
+    centerPanel.castShadow = false;
     scene.add(centerPanel);
-    for (let i = -20; i <= 20; i++) {
+    for (let i = -16; i <= 16; i++) {
       const rib = box(0.012, 6.25, 0.018, concreteDark.clone());
       const mat = rib.material as THREE.MeshStandardMaterial;
       mat.transparent = true;
       mat.opacity = 0.25;
       mat.color.setHex(0xcfc8bd);
-      rib.position.set(i * 0.104, 3.45, -2.79);
+      rib.position.set(-0.34 + i * 0.124, 3.45, -2.79);
+      rib.castShadow = false;
+      rib.receiveShadow = false;
       scene.add(rib);
     }
 
-    const ringMaterial = new THREE.MeshBasicMaterial({ color: 0x979187, transparent: true, opacity: 0.16, depthWrite: false });
-    const floorRing = new THREE.Mesh(new THREE.RingGeometry(5.9, 5.92, 128), ringMaterial);
-    floorRing.rotation.x = -Math.PI / 2;
-    floorRing.position.y = 0.012;
-    scene.add(floorRing);
+    const leftField = box(4.55, 0.035, 3.35, concreteLight.clone());
+    leftField.position.set(-2.95, 0.02, -0.06);
+    leftField.rotation.y = 0.055;
+    leftField.castShadow = false;
+    const rightField = box(3.85, 0.035, 3.05, concreteLight.clone());
+    rightField.position.set(3.34, 0.021, 0.1);
+    rightField.rotation.y = -0.075;
+    rightField.castShadow = false;
+    scene.add(leftField, rightField);
+
+    const serviceLine = box(0.035, 0.018, 5.4, red.clone());
+    serviceLine.position.set(0.82, 0.045, -0.35);
+    serviceLine.rotation.y = -0.035;
+    serviceLine.castShadow = false;
+    const wallControlLine = box(0.055, 4.9, 0.04, red.clone());
+    wallControlLine.position.set(-2.78, 3.05, -2.77);
+    wallControlLine.castShadow = false;
+    const lintel = box(4.9, 0.09, 0.1, metal);
+    lintel.position.set(-0.32, 5.68, -2.76);
+    lintel.castShadow = false;
+    scene.add(serviceLine, wallControlLine, lintel);
   }
 
   buildEnvironment();
@@ -587,11 +675,18 @@ function initHomeWorld() {
     return labels[module]?.querySelector("strong")?.textContent?.trim() || module.toUpperCase();
   }
 
+  function descriptorFor(module: ModuleId) {
+    return labels[module]?.querySelector("span")?.textContent?.trim() || "";
+  }
+
   function setContext(module: ModuleId) {
     const title = context?.querySelector<HTMLElement>("strong");
-    if (!title) return;
+    const description = context?.querySelector<HTMLElement>("em");
+    if (!title || !description) return;
     title.dataset.ytCopy = module;
     title.textContent = copyFor(module);
+    description.dataset.ytCopy = `${module}Object`;
+    description.textContent = descriptorFor(module);
   }
 
   function setFocus(module: ModuleId) {
@@ -641,10 +736,10 @@ function initHomeWorld() {
 
     const offsets: Record<ModuleId, [number, number]> = {
       personnel: [-135, -115],
-      collections: [-120, 30],
-      logs: [-18, -150],
-      creations: [72, 72],
-      sites: [52, -24],
+      collections: [-112, 42],
+      logs: [-150, -132],
+      creations: [68, 72],
+      sites: [-170, 5],
     };
     (Object.keys(labels) as ModuleId[]).forEach((module) => {
       const label = labels[module];
@@ -664,7 +759,7 @@ function initHomeWorld() {
     const height = worldCanvas.clientHeight || window.innerHeight;
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.35));
     renderer.setSize(width, height, false);
     overlayPositions.clear();
   }
@@ -802,7 +897,7 @@ function initHomeWorld() {
     const parallax = reducedMotion ? 0 : 1;
     const focusCamera = baseCamera.clone().add(new THREE.Vector3(focusAnchor.x * 0.025, (focusAnchor.y - 1.2) * 0.018, 0));
     const desired = cameraGoal || focusCamera.add(new THREE.Vector3(pointerEase.x * 0.16 * parallax, pointerEase.y * 0.07 * parallax, 0));
-    camera.position.lerp(desired, 1 - Math.pow(0.002, dt));
+    camera.position.lerp(desired, 1 - Math.pow(0.00003, dt));
     const focusTarget = baseTarget.clone().lerp(focusAnchor, 0.055);
     const target = lookGoal || focusTarget.add(new THREE.Vector3(pointerEase.x * 0.08 * parallax, pointerEase.y * 0.035 * parallax, 0));
     camera.lookAt(target);
