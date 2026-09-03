@@ -1,9 +1,19 @@
 ---
-import { getMessages } from "@core/i18n";
+import { getMessages, localeMessages } from "@core/i18n";
 import { systemNavigation } from "@core/navigation";
 
 const copy = getMessages();
 const hrefFor = Object.fromEntries(systemNavigation.map((item) => [item.id, item.href])) as Record<string, string>;
+const worldMessages = {
+  "en-US": {
+    archiveWorld: localeMessages["en-US"].archiveWorld,
+    worldOpenHint: localeMessages["en-US"].worldOpenHint,
+  },
+  "zh-CN": {
+    archiveWorld: localeMessages["zh-CN"].archiveWorld,
+    worldOpenHint: localeMessages["zh-CN"].worldOpenHint,
+  },
+};
 ---
 
 <style is:global>@import "../styles/home-world.css";</style>
@@ -54,4 +64,24 @@ const hrefFor = Object.fromEntries(systemNavigation.map((item) => [item.id, item
 
 <script>
   import "../interactions/home-world";
+</script>
+
+<script is:inline define:vars={{ worldMessages }}>
+  const worldContext = document.querySelector("[data-yt-world-context]");
+  const syncWorldCopy = () => {
+    if (!worldContext) return;
+    const locale = document.documentElement.lang === "en-US" ? "en-US" : "zh-CN";
+    const dictionary = worldMessages[locale];
+    const eyebrow = worldContext.querySelector("small");
+    const hint = worldContext.querySelector("span");
+    if (eyebrow) eyebrow.textContent = dictionary.archiveWorld;
+    if (hint) hint.textContent = dictionary.worldOpenHint;
+  };
+  if (worldContext) {
+    const contextObserver = new MutationObserver(syncWorldCopy);
+    contextObserver.observe(worldContext, { childList: true, subtree: true });
+    const localeObserver = new MutationObserver(syncWorldCopy);
+    localeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
+    syncWorldCopy();
+  }
 </script>
