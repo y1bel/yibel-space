@@ -148,6 +148,7 @@ const menu = systemNavigation.map((item) => ({ ...item, label: copy[item.id] }))
   document.addEventListener("keydown", (event) => {
     if (event.key === "Tab" && isHome) {
       event.preventDefault();
+      event.stopImmediatePropagation();
       setMenu(!shell?.classList.contains("is-menu-open"));
       return;
     }
@@ -155,7 +156,7 @@ const menu = systemNavigation.map((item) => ({ ...item, label: copy[item.id] }))
     if (event.key.toLowerCase() === "s" && !shell?.classList.contains("is-entry-loading")) setSettings(true);
     if (event.key.toLowerCase() === "g" && isWorkspace) window.location.assign("/home");
     if (event.key === "Enter" && isEntry) runLoading();
-  });
+  }, true);
 
   const renderClock = () => {
     const clock = document.querySelector("[data-yt-clock]");
