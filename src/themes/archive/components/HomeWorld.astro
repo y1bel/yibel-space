@@ -36,9 +36,9 @@ const hrefFor = Object.fromEntries(systemNavigation.map((item) => [item.id, item
   </div>
 
   <div class="yt-world3d__context" data-yt-world-context>
-    <small>ARCHIVE WORLD</small>
+    <small data-yt-copy="archiveWorld">{copy.archiveWorld}</small>
     <strong data-yt-copy="logs">{copy.logs}</strong>
-    <span>ENTER / OPEN · TAB / MENU</span>
+    <span data-yt-copy="worldOpenHint">{copy.worldOpenHint}</span>
   </div>
 
   <div class="yt-world3d__tab"><kbd>TAB</kbd><span data-yt-copy="openMenu">{copy.openMenu}</span></div>
