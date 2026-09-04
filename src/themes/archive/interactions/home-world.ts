@@ -82,6 +82,7 @@ function initHomeWorld() {
   const clock = new THREE.Clock();
   let elapsed = 0;
   let current: ModuleId = "logs";
+  let focusSource: "pointer" | "keyboard" = "keyboard";
   let hovered: THREE.Object3D | null = null;
   let activating = false;
   let cameraGoal: THREE.Vector3 | null = null;
@@ -139,7 +140,6 @@ function initHomeWorld() {
   const metalLight = new THREE.MeshStandardMaterial({ color: 0xb7afa3, roughness: 0.4, metalness: 0.56 });
   const glass = new THREE.MeshPhysicalMaterial({ color: 0x4b4b47, roughness: 0.18, transmission: 0.08, transparent: true, opacity: 0.74 });
   const red = new THREE.MeshStandardMaterial({ color: 0x9f2027, emissive: 0x4e090f, emissiveIntensity: 0.45, roughness: 0.45 });
-  const warm = new THREE.MeshStandardMaterial({ color: 0xfff0d0, emissive: 0xffd895, emissiveIntensity: 2.2, roughness: 0.7 });
 
   function box(w: number, h: number, d: number, material: THREE.Material) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
@@ -175,66 +175,60 @@ function initHomeWorld() {
 
   function buildLogs() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(0, 0, -0.35);
-    group.rotation.y = -0.025;
-    const base = box(3.05, 0.18, 1.72, concreteDark);
+    group.position.set(0, 0, -0.52);
+    const base = box(3.2, 0.18, 1.78, concreteDark);
     base.position.y = 0.09;
-    const plinth = box(2.55, 0.24, 1.28, concrete);
+    const plinth = box(2.72, 0.24, 1.32, concrete);
     plinth.position.y = 0.29;
     group.add(base, plinth);
 
-    const left = box(0.86, 2.28, 0.72, concreteLight);
-    left.position.set(-0.5, 1.54, 0);
-    left.rotation.z = -0.09;
-    const right = left.clone();
-    right.position.x = 0.5;
-    right.rotation.z = 0.09;
-    group.add(left, right);
+    const spine = box(0.42, 2.66, 0.78, concreteDark);
+    spine.position.set(0, 1.68, -0.04);
+    group.add(spine);
+    const spineFace = box(0.22, 2.32, 0.12, metal);
+    spineFace.position.set(0, 1.68, 0.39);
+    group.add(spineFace);
 
-    for (const y of [1.02, 1.48, 1.94]) {
-      const bandLeft = box(0.32, 0.035, 0.025, metal);
-      bandLeft.position.set(-0.5, y, 0.375);
-      const bandRight = bandLeft.clone();
-      bandRight.position.x = 0.5;
-      group.add(bandLeft, bandRight);
+    const bankLeft = new THREE.Group();
+    bankLeft.position.x = -0.86;
+    const bankRight = new THREE.Group();
+    bankRight.position.x = 0.86;
+    const ledgerTrays: THREE.Group[] = [];
+    for (let i = 0; i < 7; i++) {
+      const y = 0.65 + i * 0.31;
+      for (const [bank, side] of [[bankLeft, -1], [bankRight, 1]] as const) {
+        const tray = new THREE.Group();
+        tray.position.y = y;
+        const slab = box(1.02, 0.18, 0.68, i === 3 ? concreteLight : concrete);
+        const edge = box(0.74, 0.035, 0.035, metal);
+        edge.position.set(side * 0.05, 0, 0.365);
+        const index = box(0.1, 0.075, 0.04, i === 3 ? red : metalLight);
+        index.position.set(side * 0.37, 0.02, 0.39);
+        tray.add(slab, edge, index);
+        bank.add(tray);
+        if (i === 3) ledgerTrays.push(tray);
+      }
     }
+    const bankCapLeft = box(1.16, 0.13, 0.82, concreteDark);
+    bankCapLeft.position.set(0, 2.87, 0);
+    const bankCapRight = bankCapLeft.clone();
+    bankLeft.add(bankCapLeft);
+    bankRight.add(bankCapRight);
+    group.add(bankLeft, bankRight);
 
-    const sideL = box(0.31, 1.72, 0.84, concreteDark);
-    sideL.position.set(-0.99, 1.14, 0.02);
-    sideL.rotation.z = -0.05;
-    const sideR = sideL.clone();
-    sideR.position.x = 0.99;
-    sideR.rotation.z = 0.05;
-    group.add(sideL, sideR);
-
-    const seam = box(0.04, 2.08, 0.76, warm);
-    seam.position.set(0, 1.54, 0.39);
-    group.add(seam);
-    const point = box(0.06, 0.06, 0.04, red);
-    point.position.set(0, 2.59, 0.41);
-    group.add(point);
-
-    const innerRail = box(0.72, 0.08, 0.74, metalLight);
-    innerRail.position.set(0, 0.56, 0.04);
-    group.add(innerRail);
-
-    const accessRack = new THREE.Group();
-    accessRack.position.set(0, 1.46, 0.02);
-    const accessSpine = box(0.16, 1.45, 0.28, metal);
-    accessRack.add(accessSpine);
-    for (const y of [-0.48, 0, 0.48]) {
-      const recordTray = box(0.68, 0.06, 0.42, metalLight);
-      recordTray.position.y = y;
-      accessRack.add(recordTray);
-    }
-    group.add(accessRack);
+    const extractionRail = box(1.72, 0.08, 0.14, metalLight);
+    extractionRail.position.set(0, 1.58, 0.48);
+    group.add(extractionRail);
+    const status = box(0.065, 0.12, 0.045, red);
+    status.position.set(0, 2.89, 0.42);
+    group.add(status);
 
     const light = new THREE.PointLight(0xffdca5, 0.65, 4, 2);
-    light.position.set(0, 1.45, 0.55);
+    light.position.set(0, 1.6, 0.72);
     group.add(light);
 
-    const hit = hitbox("logs", 2.65, 2.8, 1.4);
-    hit.position.set(0, 1.45, 0.04);
+    const hit = hitbox("logs", 3.0, 3.1, 1.5);
+    hit.position.set(0, 1.58, 0.04);
     group.add(hit);
     contactShadow(group, 3.5, 2.2, 0.22);
 
@@ -242,193 +236,191 @@ function initHomeWorld() {
     let focusResponse = 0;
     let open = 0;
     let targetOpen = 0;
-    group.userData.anchor = new THREE.Vector3(0, 1.62, 0.46);
+    group.userData.anchor = new THREE.Vector3(0, 1.58, 0.7);
     group.userData.focus = (active: boolean) => { focus = active ? 1 : 0; };
     group.userData.activate = () => { targetOpen = 1; };
     group.userData.update = (dt: number, time: number) => {
       const t = 1 - Math.pow(0.00004, dt);
       focusResponse += (focus - focusResponse) * t;
       open += (targetOpen - open) * t;
-      left.position.x = -0.5 - open * 0.34;
-      right.position.x = 0.5 + open * 0.34;
-      left.rotation.y = -open * 0.18;
-      right.rotation.y = open * 0.18;
-      innerRail.position.z = 0.04 + open * 0.4;
-      accessRack.position.z = 0.02 + open * 0.3;
-      warm.emissiveIntensity = 1.35 + focusResponse * 0.72 + open * 0.62 + (reducedMotion ? 0 : Math.sin(time * 1.7) * 0.04);
-      light.intensity = 0.35 + focusResponse * 0.45 + open * 0.75;
+      const extraction = focusResponse * 0.2 + open * 0.72;
+      ledgerTrays[0].position.z = extraction;
+      ledgerTrays[1].position.z = extraction;
+      ledgerTrays[0].rotation.x = open * -0.055;
+      ledgerTrays[1].rotation.x = open * -0.055;
+      extractionRail.position.z = 0.48 + extraction * 0.62;
+      light.intensity = 0.24 + focusResponse * 0.28 + open * 0.56 + (reducedMotion ? 0 : Math.sin(time * 1.7) * 0.018);
     };
     return group;
   }
 
   function buildPersonnel() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(-3.55, 0, 0.48);
-    group.rotation.y = 0.16;
+    group.position.set(-3.55, 0.85, -2.62);
+    group.rotation.y = 0.1;
 
-    const pedestal = box(1.68, 0.32, 1.08, concreteDark);
-    pedestal.position.y = 0.16;
-    group.add(pedestal);
+    const wallPlate = box(1.72, 2.15, 0.12, concreteDark);
+    wallPlate.position.set(0, 1.1, -0.18);
+    group.add(wallPlate);
+    const railTop = box(1.9, 0.09, 0.26, metal);
+    railTop.position.set(0, 2.14, -0.06);
+    const railBottom = railTop.clone();
+    railBottom.position.y = 0.07;
+    group.add(railTop, railBottom);
 
-    const back = box(1.16, 2.12, 0.18, concreteDark);
-    back.position.set(0, 1.38, 0);
-    group.add(back);
-
-    const cradleLeft = box(0.08, 1.92, 0.34, metal);
-    cradleLeft.position.set(-0.67, 1.27, 0.08);
+    const cradleLeft = box(0.07, 1.86, 0.24, metal);
+    cradleLeft.position.set(-0.75, 1.1, -0.04);
     const cradleRight = cradleLeft.clone();
-    cradleRight.position.x = 0.67;
-    const cradleTop = box(1.42, 0.08, 0.34, metal);
-    cradleTop.position.set(0, 2.25, 0.08);
-    group.add(cradleLeft, cradleRight, cradleTop);
-
-    const underSheet = box(0.91, 1.58, 0.025, concreteLight);
-    underSheet.position.set(0.02, 1.48, 0.115);
-    underSheet.rotation.z = 0.018;
-    group.add(underSheet);
-
-    const dossierHinge = new THREE.Group();
-    dossierHinge.position.set(-0.52, 1.52, 0.16);
-    dossierHinge.rotation.z = -0.025;
-    group.add(dossierHinge);
-
-    const dossier = box(0.86, 1.55, 0.055, concreteLight);
-    dossier.position.x = 0.44;
-    dossierHinge.add(dossier);
-
-    const tab = box(0.22, 0.08, 0.065, metalLight);
-    tab.position.set(0.7, 0.8, 0.02);
-    dossierHinge.add(tab);
-
-    const identityWindow = box(0.5, 0.32, 0.026, glass);
-    identityWindow.position.set(0.44, -0.22, 0.045);
-    dossierHinge.add(identityWindow);
-
-    const hingeTop = box(0.1, 0.24, 0.12, metalLight);
-    hingeTop.position.set(-0.52, 1.94, 0.18);
-    const hingeBottom = hingeTop.clone();
-    hingeBottom.position.y = 1.02;
-    group.add(hingeTop, hingeBottom);
+    cradleRight.position.x = 0.75;
+    group.add(cradleLeft, cradleRight);
 
     for (let i = 0; i < 4; i++) {
-      const rule = box(0.56 - i * 0.06, 0.012, 0.018, metal);
-      rule.position.set(0.4, 0.4 - i * 0.18, 0.045);
-      dossierHinge.add(rule);
+      const archivedSheet = box(1.16 - i * 0.035, 1.56, 0.025, i % 2 ? concrete : concreteLight);
+      archivedSheet.position.set((i - 1.5) * 0.025, 1.12 + i * 0.015, 0.02 + i * 0.045);
+      archivedSheet.rotation.z = (i - 1.5) * 0.009;
+      group.add(archivedSheet);
+    }
+
+    const fileCarrier = new THREE.Group();
+    fileCarrier.position.set(-0.58, 1.13, 0.2);
+    group.add(fileCarrier);
+    const dossier = box(1.14, 1.62, 0.055, concreteLight);
+    dossier.position.x = 0.58;
+    fileCarrier.add(dossier);
+    const tab = box(0.25, 0.09, 0.07, metalLight);
+    tab.position.set(0.94, 0.84, 0.025);
+    fileCarrier.add(tab);
+    const identityWindow = box(0.64, 0.32, 0.026, glass);
+    identityWindow.position.set(0.58, 0.18, 0.045);
+    fileCarrier.add(identityWindow);
+    for (let i = 0; i < 5; i++) {
+      const rule = box(0.72 - i * 0.055, 0.012, 0.018, metal);
+      rule.position.set(0.55, -0.15 - i * 0.16, 0.046);
+      fileCarrier.add(rule);
     }
     const marker = box(0.055, 0.055, 0.035, red);
-    marker.position.set(0.14, 0.54, 0.045);
-    dossierHinge.add(marker);
+    marker.position.set(0.17, 0.58, 0.05);
+    fileCarrier.add(marker);
 
-    const hit = hitbox("personnel", 1.72, 2.5, 1.15);
-    hit.position.set(0, 1.35, 0.05);
+    const coverHinge = new THREE.Group();
+    coverHinge.position.set(0, -0.01, 0.065);
+    fileCarrier.add(coverHinge);
+    const cover = box(1.08, 1.54, 0.035, concrete);
+    cover.position.x = 0.54;
+    coverHinge.add(cover);
+    const portraitWindow = box(0.5, 0.54, 0.022, glass);
+    portraitWindow.position.set(0.54, 0.18, 0.035);
+    coverHinge.add(portraitWindow);
+    const portraitHead = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 10), metalLight);
+    portraitHead.scale.z = 0.28;
+    portraitHead.position.set(0.54, 0.28, 0.065);
+    portraitHead.castShadow = true;
+    const portraitBody = box(0.28, 0.16, 0.035, metalLight);
+    portraitBody.position.set(0.54, 0.04, 0.06);
+    coverHinge.add(portraitHead, portraitBody);
+    for (let i = 0; i < 3; i++) {
+      const coverRule = box(0.48 - i * 0.07, 0.012, 0.018, metal);
+      coverRule.position.set(0.53, -0.3 - i * 0.15, 0.045);
+      coverHinge.add(coverRule);
+    }
+
+    const hingeTop = box(0.1, 0.24, 0.12, metalLight);
+    hingeTop.position.set(-0.63, 1.72, 0.18);
+    const hingeBottom = hingeTop.clone();
+    hingeBottom.position.y = 0.5;
+    group.add(hingeTop, hingeBottom);
+
+    const hit = hitbox("personnel", 1.95, 2.35, 0.9);
+    hit.position.set(0, 1.1, 0.08);
     group.add(hit);
-    contactShadow(group, 2.0, 1.55, 0.17);
 
-    let focus = 0;
     let active = 0;
     let target = 0;
-    group.userData.anchor = new THREE.Vector3(-0.02, 1.65, 0.3);
-    group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.35 : 0; };
+    group.userData.anchor = new THREE.Vector3(0, 1.2, 0.48);
+    group.userData.focus = (state: boolean) => { target = state ? 0.38 : 0; };
     group.userData.activate = () => { target = 1; };
     group.userData.update = (dt: number) => {
       active += (target - active) * (1 - Math.pow(0.00004, dt));
-      dossierHinge.rotation.y = -active * 0.42;
-      dossierHinge.position.z = 0.16 + active * 0.08;
-      group.rotation.y += ((0.16 + focus * 0.035) - group.rotation.y) * (1 - Math.pow(0.00004, dt));
+      fileCarrier.position.z = 0.2 + active * 0.35;
+      fileCarrier.rotation.y = -active * 0.16;
+      coverHinge.rotation.y = active > 0.48 ? -(active - 0.48) * 1.25 : 0;
     };
     return group;
   }
 
   function buildCollections() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(-2.18, 0, -1.62);
-    group.scale.setScalar(0.92);
-    group.rotation.y = -0.08;
+    group.position.set(-2.45, 0.12, -2.9);
+    group.scale.setScalar(0.72);
+    group.rotation.y = -0.035;
 
-    const shell = box(1.45, 1.25, 0.95, concrete);
-    shell.position.y = 0.64;
+    const shell = box(1.68, 1.3, 0.42, concreteDark);
+    shell.position.set(0, 0.68, -0.12);
     group.add(shell);
-    const top = box(1.56, 0.09, 1.05, concreteDark);
-    top.position.y = 1.31;
+    const top = box(1.82, 0.09, 0.53, metal);
+    top.position.set(0, 1.36, -0.06);
     group.add(top);
 
     const drawers: THREE.Group[] = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       const drawer = new THREE.Group();
-      drawer.position.set(0, 0.98 - i * 0.33, 0.42);
-      const tray = box(1.05, 0.25, 0.42, metalLight);
-      tray.position.z = 0.08;
-      const face = box(1.13, 0.29, 0.08, concreteLight);
+      drawer.position.set(0, 1.12 - i * 0.29, 0.1);
+      const tray = box(1.35, 0.21, 0.5, metalLight);
+      tray.position.z = 0.02;
+      const face = box(1.45, 0.24, 0.065, concreteLight);
       face.position.z = 0.3;
-      const handle = box(0.24, 0.025, 0.025, metal);
-      handle.position.set(0, 0, 0.36);
-      const labelSlot = box(0.3, 0.08, 0.018, metal);
-      labelSlot.position.set(-0.33, 0, 0.35);
+      const handle = box(0.28, 0.025, 0.028, metal);
+      handle.position.set(0.38, 0, 0.35);
+      const labelSlot = box(0.38, 0.09, 0.02, metal);
+      labelSlot.position.set(-0.38, 0, 0.35);
       drawer.add(tray, face, handle, labelSlot);
-      if (i === 1) {
-        const storedFile = box(0.72, 0.035, 0.26, concreteLight);
-        storedFile.position.set(0.08, 0.15, 0.04);
+      if (i === 2) {
+        const storedFile = box(0.86, 0.035, 0.31, concreteLight);
+        storedFile.position.set(0.03, 0.14, 0.04);
         storedFile.rotation.y = -0.05;
         const storedMarker = box(0.08, 0.04, 0.06, red.clone());
-        storedMarker.position.set(-0.22, 0.19, 0.12);
+        storedMarker.position.set(-0.3, 0.18, 0.13);
         drawer.add(storedFile, storedMarker);
       }
       group.add(drawer);
       drawers.push(drawer);
     }
 
-    for (const x of [-0.52, 0.52]) {
-      const foot = box(0.18, 0.13, 0.62, concreteDark);
-      foot.position.set(x, 0.065, 0);
-      group.add(foot);
-    }
     const point = box(0.05, 0.05, 0.035, red);
-    point.position.set(0.5, 0.34, 0.55);
+    point.position.set(0.63, 0.16, 0.24);
     group.add(point);
 
-    const hit = hitbox("collections", 1.55, 1.5, 1.15);
-    hit.position.set(0, 0.8, 0.08);
+    const hit = hitbox("collections", 1.85, 1.55, 0.9);
+    hit.position.set(0, 0.75, 0.08);
     group.add(hit);
-    contactShadow(group, 1.9, 1.45, 0.16);
 
-    let focus = 0;
     let open = 0;
     let target = 0;
-    group.userData.anchor = new THREE.Vector3(0, 0.82, 0.64);
-    group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.42 : 0; };
+    group.userData.anchor = new THREE.Vector3(0, 0.56, 0.58);
+    group.userData.focus = (state: boolean) => { target = state ? 0.42 : 0; };
     group.userData.activate = () => { target = 1; };
     group.userData.update = (dt: number) => {
       open += (target - open) * (1 - Math.pow(0.00004, dt));
-      drawers[1].position.z = 0.42 + open * 0.52;
-      group.rotation.y += ((-0.08 + focus * 0.032) - group.rotation.y) * (1 - Math.pow(0.00004, dt));
+      drawers[2].position.z = 0.1 + open * 0.68;
     };
     return group;
   }
 
   function buildCreations() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(3.35, 0, 0.42);
-    group.scale.setScalar(0.92);
-    group.rotation.y = -0.14;
+    group.position.set(3.35, 0.92, -2.48);
+    group.rotation.y = -0.09;
 
-    const base = box(1.75, 0.43, 1.02, concrete);
-    base.position.y = 0.215;
-    group.add(base);
-    const plinth = box(1.2, 0.52, 0.72, concreteLight);
-    plinth.position.y = 0.68;
-    group.add(plinth);
-
-    const frameLeft = box(0.09, 1.62, 0.18, metalLight);
-    frameLeft.position.set(-0.79, 1.45, 0);
+    const wallBracket = box(1.85, 1.98, 0.12, concreteDark);
+    wallBracket.position.set(0, 1.04, -0.24);
+    group.add(wallBracket);
+    const frameLeft = box(0.09, 1.72, 0.22, metalLight);
+    frameLeft.position.set(-0.82, 1.03, -0.08);
     const frameRight = frameLeft.clone();
-    frameRight.position.x = 0.79;
-    const frameTop = box(1.67, 0.09, 0.18, metalLight);
-    frameTop.position.set(0, 2.25, 0);
+    frameRight.position.x = 0.82;
+    const frameTop = box(1.72, 0.09, 0.22, metalLight);
+    frameTop.position.set(0, 1.88, -0.08);
     group.add(frameLeft, frameRight, frameTop);
-
-    const alignmentRing = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.026, 10, 64), metal);
-    alignmentRing.position.set(0, 1.58, -0.03);
-    group.add(alignmentRing);
 
     const artifactMaterial = new THREE.MeshStandardMaterial({
       color: 0xc8c0b4,
@@ -436,143 +428,143 @@ function initHomeWorld() {
       metalness: 0.14,
       flatShading: true,
     });
+    const cradle = new THREE.Group();
+    cradle.position.set(0, 0.88, 0.04);
+    group.add(cradle);
+    const tray = box(1.18, 0.09, 0.62, metalLight);
+    tray.position.y = -0.42;
+    cradle.add(tray);
     const artifact = new THREE.Group();
-    artifact.position.copy(alignmentRing.position);
+    artifact.position.set(0, -0.02, 0);
     const artifactBody = new THREE.Mesh(new THREE.OctahedronGeometry(0.4, 1), artifactMaterial);
     artifactBody.scale.set(0.82, 1.16, 0.82);
     artifactBody.castShadow = true;
-    const datumHorizontal = box(0.72, 0.025, 0.07, metalLight);
-    datumHorizontal.position.z = 0.12;
-    const datumVertical = box(0.025, 0.82, 0.07, metalLight);
-    datumVertical.position.z = 0.12;
-    const artifactCore = box(0.12, 0.12, 0.12, red.clone());
-    artifactCore.position.z = 0.34;
-    artifact.add(artifactBody, datumHorizontal, datumVertical, artifactCore);
-    group.add(artifact);
+    artifact.add(artifactBody);
+    cradle.add(artifact);
 
-    const spindle = box(0.07, 0.7, 0.07, metal);
-    spindle.position.set(0, 1.08, -0.02);
-    group.add(spindle);
+    const leftArm = new THREE.Group();
+    leftArm.position.set(-0.58, 0, 0.04);
+    const leftBeam = box(0.52, 0.08, 0.14, metal);
+    leftBeam.position.x = 0.25;
+    const leftClamp = box(0.08, 0.5, 0.18, concreteLight);
+    leftClamp.position.set(0.52, 0, 0);
+    leftArm.add(leftBeam, leftClamp);
+    const rightArm = new THREE.Group();
+    rightArm.position.set(0.58, 0, 0.04);
+    const rightBeam = box(0.52, 0.08, 0.14, metal);
+    rightBeam.position.x = -0.25;
+    const rightClamp = box(0.08, 0.5, 0.18, concreteLight);
+    rightClamp.position.set(-0.52, 0, 0);
+    rightArm.add(rightBeam, rightClamp);
+    cradle.add(leftArm, rightArm);
 
-    const calipers: THREE.Mesh[] = [];
-    for (const [x, y, horizontal] of [
-      [-0.62, 1.58, true],
-      [0.62, 1.58, true],
-      [0, 0.96, false],
-      [0, 2.2, false],
-    ] as const) {
-      const caliper = box(horizontal ? 0.31 : 0.08, horizontal ? 0.08 : 0.31, 0.12, red.clone());
-      caliper.position.set(x, y, 0.08);
-      group.add(caliper);
-      calipers.push(caliper);
-    }
+    const gaugeCarriage = new THREE.Group();
+    gaugeCarriage.position.set(0, 1.8, 0.03);
+    const gaugeStem = box(0.055, 0.78, 0.08, metal);
+    gaugeStem.position.y = -0.38;
+    const gaugeHead = box(0.34, 0.12, 0.17, glass);
+    gaugeHead.position.y = -0.78;
+    gaugeCarriage.add(gaugeStem, gaugeHead);
+    group.add(gaugeCarriage);
 
-    const gauge = box(0.62, 0.08, 0.16, glass);
-    gauge.position.set(0, 0.55, 0.38);
-    group.add(gauge);
-
-    const designBed = box(1.02, 0.06, 0.48, concreteLight);
-    designBed.position.set(0, 0.84, 0.18);
-    designBed.rotation.x = -0.16;
-    group.add(designBed);
-    for (let i = -3; i <= 3; i++) {
-      const measure = box(0.018, 0.08 + (i % 2 === 0 ? 0.05 : 0), 0.018, metal);
-      measure.position.set(i * 0.18, 2.15, 0.11);
-      group.add(measure);
+    for (const x of [-0.52, 0.52]) {
+      const suspension = box(0.045, 0.72, 0.045, metal);
+      suspension.position.set(x, 1.5, -0.02);
+      group.add(suspension);
     }
 
     const point = box(0.055, 0.055, 0.035, red);
-    point.position.set(0.61, 0.44, 0.54);
+    point.position.set(0.68, 1.72, 0.04);
     group.add(point);
 
-    const hit = hitbox("creations", 1.85, 2.25, 1.2);
-    hit.position.set(0, 1.35, 0.08);
+    const hit = hitbox("creations", 1.95, 2.1, 1.05);
+    hit.position.set(0, 1.02, 0.06);
     group.add(hit);
-    contactShadow(group, 2.2, 1.55, 0.18);
 
-    let focus = 0;
     let activation = 0;
     let target = 0;
-    group.userData.anchor = new THREE.Vector3(0.15, 1.64, 0.55);
-    group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.32 : 0; };
+    group.userData.anchor = new THREE.Vector3(0.12, 0.96, 0.48);
+    group.userData.focus = (state: boolean) => { target = state ? 0.38 : 0; };
     group.userData.activate = () => { target = 1; };
-    group.userData.update = (dt: number, time: number) => {
+    group.userData.update = (dt: number) => {
       activation += (target - activation) * (1 - Math.pow(0.00004, dt));
-      const drift = reducedMotion ? 0 : Math.sin(time * 0.72) * 0.018;
-      artifact.position.y = 1.58 + drift + activation * 0.08;
-      artifact.rotation.x += reducedMotion ? 0 : dt * (0.035 + activation * 0.12);
-      artifact.rotation.y += reducedMotion ? 0 : dt * (0.07 + activation * 0.2);
-      alignmentRing.rotation.y = activation * 0.22;
-      calipers[0].position.x = -0.62 + activation * 0.13;
-      calipers[1].position.x = 0.62 - activation * 0.13;
-      calipers[2].position.y = 0.96 + activation * 0.13;
-      calipers[3].position.y = 2.2 - activation * 0.13;
-      group.rotation.y += ((-0.14 - focus * 0.035) - group.rotation.y) * (1 - Math.pow(0.00004, dt));
+      const calibration = Math.min(activation / 0.38, 1);
+      leftArm.position.x = -0.58 + calibration * 0.13;
+      rightArm.position.x = 0.58 - calibration * 0.13;
+      gaugeCarriage.position.y = 1.8 - calibration * 0.22;
+      cradle.position.z = 0.04 + Math.max(0, activation - 0.38) * 0.82;
+      cradle.rotation.x = Math.max(0, activation - 0.38) * -0.09;
     };
     return group;
   }
 
   function buildSites() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(4.65, 2.12, -2.85);
-    group.scale.setScalar(0.82);
-    group.rotation.y = -0.06;
+    group.position.set(4.35, 2.45, -2.96);
+    group.scale.setScalar(0.6);
+    group.rotation.y = -0.025;
 
-    const backplate = box(1.34, 1.76, 0.1, concreteDark);
-    backplate.position.set(0.42, 1.16, -0.12);
-    const rail = box(0.08, 1.95, 0.13, metal);
-    rail.position.set(-0.28, 1.16, -0.02);
-    rail.castShadow = false;
-    const crossRail = box(1.46, 0.07, 0.13, metal);
-    crossRail.position.set(0.4, 1.16, -0.01);
-    crossRail.castShadow = false;
-    group.add(backplate, rail, crossRail);
+    const backplate = box(1.7, 1.58, 0.09, concreteDark);
+    backplate.position.set(0, 0.78, -0.12);
+    const inset = box(1.46, 1.34, 0.08, concrete);
+    inset.position.set(0, 0.78, -0.04);
+    group.add(backplate, inset);
 
-    const node = box(0.9, 0.84, 0.28, concreteLight);
-    node.position.set(0.48, 1.2, 0.06);
-    group.add(node);
-    const glassPanel = box(0.48, 0.16, 0.02, glass);
-    glassPanel.position.set(0.48, 1.36, 0.215);
-    group.add(glassPanel);
     const siteSignal = red.clone();
-    const point = box(0.06, 0.06, 0.035, siteSignal);
-    point.position.set(0.03, 1.56, 0.2);
+    const point = box(0.055, 0.055, 0.035, siteSignal);
+    point.position.set(0.62, 1.28, 0.075);
     group.add(point);
-    for (let i = 0; i < 3; i++) {
-      const slot = box(0.46, 0.025, 0.018, metal);
-      slot.position.set(0.47, 1.08 - i * 0.09, 0.2);
-      group.add(slot);
+
+    const socketGeometry = new THREE.CylinderGeometry(0.105, 0.105, 0.1, 16);
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 3; col++) {
+        const socket = new THREE.Mesh(socketGeometry, metal);
+        socket.rotation.x = Math.PI / 2;
+        socket.position.set(-0.48 + col * 0.48, 0.98 - row * 0.48, 0.08);
+        socket.castShadow = true;
+        group.add(socket);
+        const socketCore = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.115, 12), glass);
+        socketCore.rotation.x = Math.PI / 2;
+        socketCore.position.copy(socket.position);
+        socketCore.position.z += 0.015;
+        group.add(socketCore);
+      }
     }
 
-    for (const y of [0.55, 1.77]) {
-      const junction = box(0.2, 0.2, 0.18, metalLight);
-      junction.position.set(-0.28, y, 0.04);
-      group.add(junction);
-    }
+    const shutter = box(0.28, 0.3, 0.055, concreteLight);
+    shutter.position.set(0, 0.5, 0.15);
+    group.add(shutter);
+    const connector = new THREE.Group();
+    connector.position.set(0, 0.5, 0.18);
+    const connectorBody = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.28, 12), metalLight);
+    connectorBody.rotation.x = Math.PI / 2;
+    const connectorPin = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 10), red);
+    connectorPin.rotation.x = Math.PI / 2;
+    connectorPin.position.z = 0.19;
+    connector.add(connectorBody, connectorPin);
+    group.add(connector);
 
-    const outboundRail = box(1.35, 0.055, 0.08, metal);
-    outboundRail.position.set(1.5, 1.78, -0.03);
-    outboundRail.castShadow = false;
-    const outboundSignal = box(0.07, 0.12, 0.1, siteSignal);
-    outboundSignal.position.set(2.17, 1.78, -0.01);
-    group.add(outboundRail, outboundSignal);
+    const signalArm = box(0.06, 0.06, 0.52, metal);
+    signalArm.position.set(0.62, 0.25, 0.18);
+    signalArm.scale.z = 0.08;
+    group.add(signalArm);
 
-    const hit = hitbox("sites", 1.2, 1.7, 0.65);
-    hit.position.set(0.45, 1.2, 0.04);
+    const hit = hitbox("sites", 1.85, 1.72, 0.65);
+    hit.position.set(0, 0.78, 0.04);
     group.add(hit);
 
-    let focus = 0;
     let pulse = 0;
     let target = 0;
-    group.userData.anchor = new THREE.Vector3(0.48, 1.25, 0.24);
-    group.userData.focus = (state: boolean) => { focus = state ? 1 : 0; target = state ? 0.45 : 0; };
+    group.userData.anchor = new THREE.Vector3(0, 0.68, 0.28);
+    group.userData.focus = (state: boolean) => { target = state ? 0.44 : 0; };
     group.userData.activate = () => { target = 1; };
     group.userData.update = (dt: number, time: number) => {
       pulse += (target - pulse) * (1 - Math.pow(0.00004, dt));
-      siteSignal.emissiveIntensity = 0.4 + pulse * 1.1 + (reducedMotion ? 0 : Math.sin(time * 2.2) * 0.05);
-      node.position.z = 0.06 + pulse * 0.08;
-      crossRail.scale.x = 1 + pulse * 0.04;
-      group.rotation.y += ((-0.06 - focus * 0.035) - group.rotation.y) * (1 - Math.pow(0.00004, dt));
+      siteSignal.emissiveIntensity = 0.35 + pulse * 0.82 + (reducedMotion ? 0 : Math.sin(time * 2.2) * 0.035);
+      shutter.position.x = pulse * 0.3;
+      connector.position.z = 0.18 + pulse * 0.38;
+      signalArm.scale.z = 0.08 + Math.max(0, pulse - 0.44) * 1.35;
+      signalArm.position.z = 0.18 + Math.max(0, pulse - 0.44) * 0.28;
     };
     return group;
   }
@@ -632,8 +624,9 @@ function initHomeWorld() {
     title.textContent = copyFor(module);
   }
 
-  function setFocus(module: ModuleId) {
+  function setFocus(module: ModuleId, source = focusSource) {
     current = module;
+    focusSource = source;
     Object.entries(objects).forEach(([key, object]) => object.userData.focus?.(key === module));
     setContext(module);
     labels[module]?.classList.add("is-active");
@@ -674,15 +667,15 @@ function initHomeWorld() {
         THREE.MathUtils.clamp(p.x, 54, Math.max(54, width - 54)),
         THREE.MathUtils.clamp(p.y, 54, Math.max(54, height - 54)),
       );
-      reticle.classList.add("is-visible");
+      reticle.classList.toggle("is-visible", focusSource === "keyboard");
     }
 
     const offsets: Record<ModuleId, [number, number]> = {
-      personnel: [-112, -96],
-      collections: [-98, 34],
-      logs: [-76, -102],
-      creations: [55, 58],
-      sites: [-140, -6],
+      personnel: [-116, -86],
+      collections: [-104, 34],
+      logs: [-76, -116],
+      creations: [58, 52],
+      sites: [-134, -8],
     };
     (Object.keys(labels) as ModuleId[]).forEach((module) => {
       const label = labels[module];
@@ -702,7 +695,7 @@ function initHomeWorld() {
     const height = worldCanvas.clientHeight || window.innerHeight;
     camera.aspect = width / height;
     const narrowFraming = Math.max(0, 1.5 - camera.aspect);
-    baseCamera.set(0.05, 2.96 + narrowFraming * 0.25, 10.8 + narrowFraming * 7);
+    baseCamera.set(0.05, 2.96 + narrowFraming * 0.25, 10.8 + narrowFraming * 9.5);
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.35));
     renderer.setSize(width, height, false);
@@ -741,7 +734,7 @@ function initHomeWorld() {
       hovered = next;
       const module = next?.userData.module as ModuleId | undefined;
       if (module) {
-        setFocus(module);
+        setFocus(module, "pointer");
         worldCanvas.style.cursor = "pointer";
       } else {
         worldCanvas.style.cursor = "default";
@@ -770,11 +763,11 @@ function initHomeWorld() {
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
       event.preventDefault();
       const index = Math.max(0, focusOrder.indexOf(current));
-      setFocus(focusOrder[(index + 1) % focusOrder.length]);
+      setFocus(focusOrder[(index + 1) % focusOrder.length], "keyboard");
     } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
       event.preventDefault();
       const index = Math.max(0, focusOrder.indexOf(current));
-      setFocus(focusOrder[(index - 1 + focusOrder.length) % focusOrder.length]);
+      setFocus(focusOrder[(index - 1 + focusOrder.length) % focusOrder.length], "keyboard");
     } else if (event.key === "Enter") {
       event.preventDefault();
       navigate(current);

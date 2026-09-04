@@ -135,8 +135,8 @@
 .yt-world3d__reticle {
   position: absolute;
   z-index: 4;
-  width: 86px;
-  height: 86px;
+  width: 72px;
+  height: 72px;
   opacity: 0;
   transform: translate(-50%, -50%) scale(.94);
   pointer-events: none;
@@ -144,31 +144,20 @@
 }
 
 .yt-world3d__reticle.is-visible {
-  opacity: .5;
+  opacity: .42;
   transform: translate(-50%, -50%) scale(1);
 }
 
 .yt-world3d__reticle span {
   position: absolute;
-  width: 15px;
-  height: 15px;
+  width: 12px;
+  height: 12px;
 }
 
 .yt-world3d__reticle span:nth-child(1) { top: 0; left: 0; border-top: 1px solid rgba(23,23,22,.34); border-left: 1px solid rgba(23,23,22,.34); }
 .yt-world3d__reticle span:nth-child(2) { top: 0; right: 0; border-top: 1px solid rgba(23,23,22,.34); border-right: 1px solid rgba(23,23,22,.34); }
 .yt-world3d__reticle span:nth-child(3) { bottom: 0; left: 0; border-bottom: 1px solid rgba(23,23,22,.34); border-left: 1px solid rgba(23,23,22,.34); }
 .yt-world3d__reticle span:nth-child(4) { right: 0; bottom: 0; border-right: 1px solid rgba(23,23,22,.34); border-bottom: 1px solid rgba(23,23,22,.34); }
-
-.yt-world3d__reticle i {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 4px;
-  height: 4px;
-  background: #9f2027;
-  box-shadow: 0 0 0 5px rgba(159, 32, 39, .08);
-  transform: translate(-50%, -50%);
-}
 
 .yt-world3d__context {
   position: absolute;
