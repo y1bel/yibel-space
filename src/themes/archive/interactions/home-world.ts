@@ -59,13 +59,13 @@ function initHomeWorld() {
   };
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xe9e5dc);
-  scene.fog = new THREE.Fog(0xe9e5dc, 10, 24);
+  scene.background = new THREE.Color(0xe6e1d8);
+  scene.fog = new THREE.Fog(0xe6e1d8, 11, 25);
 
   const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 50);
-  camera.position.set(0.24, 3.12, 9.45);
+  camera.position.set(0.05, 2.96, 10.8);
   const baseCamera = camera.position.clone();
-  const baseTarget = new THREE.Vector3(0, 1.36, -0.18);
+  const baseTarget = new THREE.Vector3(0, 1.3, -0.38);
 
   const renderer = new THREE.WebGLRenderer({
     canvas: worldCanvas,
@@ -75,7 +75,7 @@ function initHomeWorld() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.35));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.08;
+  renderer.toneMappingExposure = 1;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -175,7 +175,7 @@ function initHomeWorld() {
 
   function buildLogs() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(0.08, 0, -0.42);
+    group.position.set(0, 0, -0.35);
     group.rotation.y = -0.025;
     const base = box(3.05, 0.18, 1.72, concreteDark);
     base.position.y = 0.09;
@@ -255,15 +255,15 @@ function initHomeWorld() {
       right.rotation.y = open * 0.18;
       innerRail.position.z = 0.04 + open * 0.4;
       accessRack.position.z = 0.02 + open * 0.3;
-      warm.emissiveIntensity = 1.85 + focusResponse * 1.15 + open * 0.8 + (reducedMotion ? 0 : Math.sin(time * 1.7) * 0.06);
-      light.intensity = 0.5 + focusResponse * 0.62 + open;
+      warm.emissiveIntensity = 1.35 + focusResponse * 0.72 + open * 0.62 + (reducedMotion ? 0 : Math.sin(time * 1.7) * 0.04);
+      light.intensity = 0.35 + focusResponse * 0.45 + open * 0.75;
     };
     return group;
   }
 
   function buildPersonnel() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(-3.85, 0, 0.78);
+    group.position.set(-3.55, 0, 0.48);
     group.rotation.y = 0.16;
 
     const pedestal = box(1.68, 0.32, 1.08, concreteDark);
@@ -341,7 +341,8 @@ function initHomeWorld() {
 
   function buildCollections() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(-2.12, 0, -1.82);
+    group.position.set(-2.18, 0, -1.62);
+    group.scale.setScalar(0.92);
     group.rotation.y = -0.08;
 
     const shell = box(1.45, 1.25, 0.95, concrete);
@@ -406,7 +407,8 @@ function initHomeWorld() {
 
   function buildCreations() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(3.58, 0, 0.72);
+    group.position.set(3.35, 0, 0.42);
+    group.scale.setScalar(0.92);
     group.rotation.y = -0.14;
 
     const base = box(1.75, 0.43, 1.02, concrete);
@@ -512,15 +514,18 @@ function initHomeWorld() {
 
   function buildSites() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(4.82, 2.15, -2.62);
+    group.position.set(4.65, 2.12, -2.85);
+    group.scale.setScalar(0.82);
     group.rotation.y = -0.06;
 
     const backplate = box(1.34, 1.76, 0.1, concreteDark);
     backplate.position.set(0.42, 1.16, -0.12);
     const rail = box(0.08, 1.95, 0.13, metal);
     rail.position.set(-0.28, 1.16, -0.02);
+    rail.castShadow = false;
     const crossRail = box(1.46, 0.07, 0.13, metal);
     crossRail.position.set(0.4, 1.16, -0.01);
+    crossRail.castShadow = false;
     group.add(backplate, rail, crossRail);
 
     const node = box(0.9, 0.84, 0.28, concreteLight);
@@ -547,6 +552,7 @@ function initHomeWorld() {
 
     const outboundRail = box(1.35, 0.055, 0.08, metal);
     outboundRail.position.set(1.5, 1.78, -0.03);
+    outboundRail.castShadow = false;
     const outboundSignal = box(0.07, 0.12, 0.1, siteSignal);
     outboundSignal.position.set(2.17, 1.78, -0.01);
     group.add(outboundRail, outboundSignal);
@@ -572,8 +578,8 @@ function initHomeWorld() {
   }
 
   function buildEnvironment() {
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8f887d, 1.35));
-    const key = new THREE.DirectionalLight(0xfff8e8, 3.1);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8f887d, 1.05));
+    const key = new THREE.DirectionalLight(0xfff8e8, 2.55);
     key.position.set(-3, 8, 5);
     key.castShadow = true;
     key.shadow.mapSize.set(1024, 1024);
@@ -583,7 +589,7 @@ function initHomeWorld() {
     key.shadow.camera.bottom = -2;
     key.shadow.bias = -0.00025;
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0xd5dce0, 0.48);
+    const rim = new THREE.DirectionalLight(0xd5dce0, 0.32);
     rim.position.set(5, 4, -3);
     scene.add(rim);
 
@@ -600,117 +606,11 @@ function initHomeWorld() {
     wall.receiveShadow = true;
     scene.add(wall);
 
-    const centerPanel = box(4.8, 6.9, 0.14, concreteLight.clone());
-    (centerPanel.material as THREE.MeshStandardMaterial).color.setHex(0xece8df);
-    centerPanel.position.set(-0.34, 3.45, -2.91);
-    centerPanel.castShadow = false;
-    scene.add(centerPanel);
-    for (let i = -16; i <= 16; i++) {
-      const rib = box(0.012, 6.25, 0.018, concreteDark.clone());
-      const mat = rib.material as THREE.MeshStandardMaterial;
-      mat.transparent = true;
-      mat.opacity = 0.25;
-      mat.color.setHex(0xcfc8bd);
-      rib.position.set(-0.34 + i * 0.124, 3.45, -2.79);
-      rib.castShadow = false;
-      rib.receiveShadow = false;
-      scene.add(rib);
-    }
-
-    const leftField = box(4.55, 0.035, 3.35, concreteLight.clone());
-    leftField.position.set(-2.95, 0.02, -0.06);
-    leftField.rotation.y = 0.055;
-    leftField.castShadow = false;
-    const rightField = box(3.85, 0.035, 3.05, concreteLight.clone());
-    rightField.position.set(3.34, 0.021, 0.1);
-    rightField.rotation.y = -0.075;
-    rightField.castShadow = false;
-    scene.add(leftField, rightField);
-
-    const serviceLine = box(0.035, 0.018, 5.4, red.clone());
-    serviceLine.position.set(0.82, 0.045, -0.35);
-    serviceLine.rotation.y = -0.035;
-    serviceLine.castShadow = false;
-    const wallControlLine = box(0.055, 4.9, 0.04, red.clone());
-    wallControlLine.position.set(-2.78, 3.05, -2.77);
-    wallControlLine.castShadow = false;
-    const lintel = box(4.9, 0.09, 0.1, metal);
-    lintel.position.set(-0.32, 5.68, -2.76);
-    lintel.castShadow = false;
-    scene.add(serviceLine, wallControlLine, lintel);
-
-    const monument = new THREE.Group();
-    monument.position.set(1.82, 3.32, -1.92);
-    monument.rotation.y = -0.16;
-
-    const monumentMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x292622,
-      roughness: 0.32,
-      metalness: 0.68,
-      clearcoat: 0.5,
-      clearcoatRoughness: 0.25,
-      bumpMap: noise,
-      bumpScale: 0.012,
-    });
-    const monumentGeometry = new THREE.ConeGeometry(0.86, 1.08, 4, 1, false, Math.PI / 4);
-    const invertedPyramid = new THREE.Mesh(monumentGeometry, monumentMaterial);
-    invertedPyramid.rotation.z = Math.PI;
-    invertedPyramid.castShadow = true;
-    monument.add(invertedPyramid);
-
-    const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xb52b32, transparent: true, opacity: 0.72 });
-    const pyramidEdges = new THREE.LineSegments(new THREE.EdgesGeometry(monumentGeometry, 18), edgeMaterial);
-    pyramidEdges.rotation.copy(invertedPyramid.rotation);
-    pyramidEdges.scale.setScalar(1.006);
-    monument.add(pyramidEdges);
-
-    const facePanelGeometry = new THREE.BufferGeometry();
-    facePanelGeometry.setAttribute("position", new THREE.Float32BufferAttribute([
-      -0.49, 0.42, 0.615,
-      0.49, 0.42, 0.615,
-      0, -0.43, 0.015,
-    ], 3));
-    facePanelGeometry.computeVertexNormals();
-    const facePanel = new THREE.Mesh(facePanelGeometry, new THREE.MeshPhysicalMaterial({
-      color: 0x423c35,
-      roughness: 0.25,
-      metalness: 0.74,
-      clearcoat: 0.35,
-      side: THREE.DoubleSide,
-    }));
-    monument.add(facePanel);
-
-    const strata = [
-      { y: 0.48, size: 1.24, material: metal },
-      { y: 0.25, size: 0.88, material: red.clone() },
-      { y: 0.02, size: 0.51, material: metalLight },
-    ];
-    strata.forEach(({ y, size, material }, index) => {
-      const plate = box(size, index === 1 ? 0.028 : 0.018, size, material);
-      plate.position.y = y;
-      plate.rotation.y = Math.PI / 4;
-      monument.add(plate);
-    });
-
-    const gantry = box(2.36, 0.075, 0.14, metal);
-    gantry.position.set(0, 1.47, -0.72);
-    const gantryNode = box(0.18, 0.16, 0.2, red.clone());
-    gantryNode.position.set(-0.84, 1.47, -0.66);
-    monument.add(gantry, gantryNode);
-
-    const cableGeometry = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(-0.84, 1.43, -0.66), new THREE.Vector3(-0.61, 0.52, -0.02),
-      new THREE.Vector3(0.84, 1.43, -0.66), new THREE.Vector3(0.61, 0.52, -0.02),
-      new THREE.Vector3(-0.28, 1.43, -0.69), new THREE.Vector3(-0.28, 0.52, -0.42),
-      new THREE.Vector3(0.28, 1.43, -0.69), new THREE.Vector3(0.28, 0.52, -0.42),
-    ]);
-    const cables = new THREE.LineSegments(
-      cableGeometry,
-      new THREE.LineBasicMaterial({ color: 0x5f5a52, transparent: true, opacity: 0.82 }),
-    );
-    monument.add(cables);
-
-    scene.add(monument);
+    const wallBay = box(3.7, 5.55, 0.08, concreteLight.clone());
+    (wallBay.material as THREE.MeshStandardMaterial).color.setHex(0xece8df);
+    wallBay.position.set(0, 2.78, -2.97);
+    wallBay.castShadow = false;
+    scene.add(wallBay);
   }
 
   buildEnvironment();
@@ -725,18 +625,11 @@ function initHomeWorld() {
     return labels[module]?.querySelector("strong")?.textContent?.trim() || module.toUpperCase();
   }
 
-  function descriptorFor(module: ModuleId) {
-    return labels[module]?.querySelector("span")?.textContent?.trim() || "";
-  }
-
   function setContext(module: ModuleId) {
     const title = context?.querySelector<HTMLElement>("strong");
-    const description = context?.querySelector<HTMLElement>("em");
-    if (!title || !description) return;
+    if (!title) return;
     title.dataset.ytCopy = module;
     title.textContent = copyFor(module);
-    description.dataset.ytCopy = `${module}Object`;
-    description.textContent = descriptorFor(module);
   }
 
   function setFocus(module: ModuleId) {
@@ -778,18 +671,18 @@ function initHomeWorld() {
       const p = project(current);
       placeOverlay(
         reticle,
-        THREE.MathUtils.clamp(p.x, 78, Math.max(78, width - 78)),
-        THREE.MathUtils.clamp(p.y, 78, Math.max(78, height - 78)),
+        THREE.MathUtils.clamp(p.x, 54, Math.max(54, width - 54)),
+        THREE.MathUtils.clamp(p.y, 54, Math.max(54, height - 54)),
       );
       reticle.classList.add("is-visible");
     }
 
     const offsets: Record<ModuleId, [number, number]> = {
-      personnel: [-135, -115],
-      collections: [-112, 42],
-      logs: [-96, -112],
-      creations: [68, 72],
-      sites: [-170, 5],
+      personnel: [-112, -96],
+      collections: [-98, 34],
+      logs: [-76, -102],
+      creations: [55, 58],
+      sites: [-140, -6],
     };
     (Object.keys(labels) as ModuleId[]).forEach((module) => {
       const label = labels[module];
@@ -798,7 +691,7 @@ function initHomeWorld() {
       const [x, y] = offsets[module];
       placeOverlay(
         label,
-        THREE.MathUtils.clamp(p.x + x, 22, Math.max(22, width - 152)),
+        THREE.MathUtils.clamp(p.x + x, 22, Math.max(22, width - 136)),
         THREE.MathUtils.clamp(p.y + y, 28, Math.max(28, height - 68)),
       );
     });
@@ -808,6 +701,8 @@ function initHomeWorld() {
     const width = worldCanvas.clientWidth || window.innerWidth;
     const height = worldCanvas.clientHeight || window.innerHeight;
     camera.aspect = width / height;
+    const narrowFraming = Math.max(0, 1.5 - camera.aspect);
+    baseCamera.set(0.05, 2.96 + narrowFraming * 0.25, 10.8 + narrowFraming * 7);
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.35));
     renderer.setSize(width, height, false);
