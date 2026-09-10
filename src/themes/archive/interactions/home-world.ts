@@ -11,6 +11,7 @@ type WorldObject = THREE.Group & {
     focus?: (active: boolean) => void;
     activate?: () => void;
     anchor?: THREE.Vector3;
+    access?: THREE.Vector3;
   };
 };
 
@@ -39,7 +40,9 @@ function initHomeWorld() {
   let disposed = false;
   const routes = document.querySelector<HTMLElement>("[data-yt-world-routes]");
   const context = document.querySelector<HTMLElement>("[data-yt-world-context]");
-  const reticle = document.querySelector<HTMLElement>("[data-yt-world-reticle]");
+  let hasFocus = false;
+  let menuModule: ModuleId | null = null;
+  const menuResponses = new Map<ModuleId, number>();
   const shell = document.querySelector<HTMLElement>("[data-yt-shell]");
 
   const routeMap: Record<ModuleId, string> = {
@@ -173,92 +176,91 @@ function initHomeWorld() {
     group.add(plane);
   }
 
+  // A single load-bearing record vault, with a paper carrier inside its seam.
   function buildLogs() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(0, 0, -0.52);
-    const base = box(3.2, 0.18, 1.78, concreteDark);
-    base.position.y = 0.09;
-    const plinth = box(2.72, 0.24, 1.32, concrete);
-    plinth.position.y = 0.29;
-    group.add(base, plinth);
-
-    const spine = box(0.42, 2.66, 0.78, concreteDark);
-    spine.position.set(0, 1.68, -0.04);
-    group.add(spine);
-    const spineFace = box(0.22, 2.32, 0.12, metal);
-    spineFace.position.set(0, 1.68, 0.39);
-    group.add(spineFace);
-
-    const bankLeft = new THREE.Group();
-    bankLeft.position.x = -0.86;
-    const bankRight = new THREE.Group();
-    bankRight.position.x = 0.86;
-    const ledgerTrays: THREE.Group[] = [];
-    for (let i = 0; i < 7; i++) {
-      const y = 0.65 + i * 0.31;
-      for (const [bank, side] of [[bankLeft, -1], [bankRight, 1]] as const) {
-        const tray = new THREE.Group();
-        tray.position.y = y;
-        const slab = box(1.02, 0.18, 0.68, i === 3 ? concreteLight : concrete);
-        const edge = box(0.74, 0.035, 0.035, metal);
-        edge.position.set(side * 0.05, 0, 0.365);
-        const index = box(0.1, 0.075, 0.04, i === 3 ? red : metalLight);
-        index.position.set(side * 0.37, 0.02, 0.39);
-        tray.add(slab, edge, index);
-        bank.add(tray);
-        if (i === 3) ledgerTrays.push(tray);
+    group.position.set(0, 0, -0.55);
+    const footing = box(2.65, 0.16, 1.65, concreteDark);
+    footing.position.y = 0.08;
+    const spine = box(1.8, 3.45, 0.36, concreteDark);
+    spine.position.set(0, 1.88, -0.43);
+    group.add(footing, spine);
+    const banks: THREE.Group[] = [];
+    for (const side of [-1, 1]) {
+      const bank = new THREE.Group();
+      bank.position.set(side * 0.64, 0, 0);
+      const shell = box(1.05, 3.32, 0.96, concreteLight);
+      shell.position.y = 1.92;
+      bank.add(shell);
+      for (const y of [0.4, 3.38]) {
+        const band = box(1.08, 0.055, 0.99, metalLight);
+        band.position.y = y;
+        bank.add(band);
       }
+      banks.push(bank);
+      group.add(bank);
     }
-    const bankCapLeft = box(1.16, 0.13, 0.82, concreteDark);
-    bankCapLeft.position.set(0, 2.87, 0);
-    const bankCapRight = bankCapLeft.clone();
-    bankLeft.add(bankCapLeft);
-    bankRight.add(bankCapRight);
-    group.add(bankLeft, bankRight);
-
-    const extractionRail = box(1.72, 0.08, 0.14, metalLight);
-    extractionRail.position.set(0, 1.58, 0.48);
-    group.add(extractionRail);
-    const status = box(0.065, 0.12, 0.045, red);
-    status.position.set(0, 2.89, 0.42);
-    group.add(status);
-
-    const light = new THREE.PointLight(0xffdca5, 0.65, 4, 2);
-    light.position.set(0, 1.6, 0.72);
-    group.add(light);
-
-    const hit = hitbox("logs", 3.0, 3.1, 1.5);
-    hit.position.set(0, 1.58, 0.04);
+    const recess = box(0.26, 2.86, 0.09, metal);
+    recess.position.set(0, 1.86, 0.16);
+    group.add(recess);
+    const carrier = new THREE.Group();
+    carrier.position.set(0, 1.65, 0.28);
+    const record = box(0.15, 1.58, 0.7, concreteLight);
+    const binding = box(0.17, 1.6, 0.055, metalLight);
+    binding.position.z = 0.36;
+    carrier.add(record, binding);
+    // Parallel edges read as sheets, never a screen.
+    for (let i = 0; i < 5; i++) {
+      const page = box(0.012, 1.5, 0.66, concrete);
+      page.position.set(-0.057 + i * 0.028, 0, 0.028);
+      carrier.add(page);
+    }
+    const tab = box(0.14, 0.14, 0.04, red);
+    tab.position.set(0, 0.55, 0.4);
+    carrier.add(tab);
+    group.add(carrier);
+    const locks: THREE.Mesh[] = [];
+    for (const y of [0.92, 2.48]) {
+      const lock = box(0.44, 0.075, 0.16, metal);
+      lock.position.set(0, y, 0.56);
+      group.add(lock);
+      locks.push(lock);
+    }
+    const hit = hitbox("logs", 2.7, 3.7, 1.6);
+    hit.position.y = 1.85;
     group.add(hit);
-    contactShadow(group, 3.5, 2.2, 0.22);
-
-    let focus = 0;
-    let focusResponse = 0;
-    let open = 0;
-    let targetOpen = 0;
-    group.userData.anchor = new THREE.Vector3(0, 1.58, 0.7);
-    group.userData.focus = (active: boolean) => { focus = active ? 1 : 0; };
-    group.userData.activate = () => { targetOpen = 1; };
-    group.userData.update = (dt: number, time: number) => {
-      const t = 1 - Math.pow(0.00004, dt);
-      focusResponse += (focus - focusResponse) * t;
-      open += (targetOpen - open) * t;
-      const extraction = focusResponse * 0.2 + open * 0.72;
-      ledgerTrays[0].position.z = extraction;
-      ledgerTrays[1].position.z = extraction;
-      ledgerTrays[0].rotation.x = open * -0.055;
-      ledgerTrays[1].rotation.x = open * -0.055;
-      extractionRail.position.z = 0.48 + extraction * 0.62;
-      light.intensity = 0.24 + focusResponse * 0.28 + open * 0.56 + (reducedMotion ? 0 : Math.sin(time * 1.7) * 0.018);
+    contactShadow(group, 3.5, 2.4, 0.22);
+    let response = 0, target = 0, extraction = 0, extractionTarget = 0;
+    group.userData.anchor = new THREE.Vector3(0, 3.62, 0.5);
+    group.userData.focus = (active) => { target = active ? 1 : 0; };
+    group.userData.activate = () => { extractionTarget = 1; };
+    group.userData.update = (dt) => {
+      const damping = 1 - Math.exp(-11 * dt);
+      response += (target - response) * damping;
+      extraction += (extractionTarget - extraction) * damping;
+      locks.forEach((lock, i) => {
+        lock.position.x = (i ? 1 : -1) * response * 0.19;
+        lock.rotation.z = (i ? 1 : -1) * response * 0.12;
+      });
+      banks[0].position.x = -0.64 - extraction * 0.36;
+      banks[1].position.x = 0.64 + extraction * 0.36;
+      carrier.position.z = 0.28 + response * 0.07 + extraction * 1.05;
+      carrier.rotation.y = extraction * -0.2;
     };
     return group;
   }
 
   function buildPersonnel() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(-3.55, 0.85, -2.62);
-    group.rotation.y = 0.1;
+    group.position.set(-2.55, 0.65, 0.12);
+    group.scale.setScalar(0.84);
+    group.rotation.y = 0.22;
 
+    const leg = box(0.2, 0.76, 0.55, metal);
+    leg.position.set(0, -0.38, -0.08);
+    const foot = box(1.6, 0.1, 0.85, concreteDark);
+    foot.position.y = -0.73;
+    group.add(leg, foot);
     const wallPlate = box(1.72, 2.15, 0.12, concreteDark);
     wallPlate.position.set(0, 1.1, -0.18);
     group.add(wallPlate);
@@ -336,22 +338,23 @@ function initHomeWorld() {
 
     let active = 0;
     let target = 0;
-    group.userData.anchor = new THREE.Vector3(0, 1.2, 0.48);
+    group.userData.anchor = new THREE.Vector3(0, 2.3, 0.48);
     group.userData.focus = (state: boolean) => { target = state ? 0.38 : 0; };
     group.userData.activate = () => { target = 1; };
     group.userData.update = (dt: number) => {
       active += (target - active) * (1 - Math.pow(0.00004, dt));
       fileCarrier.position.z = 0.2 + active * 0.35;
       fileCarrier.rotation.y = -active * 0.16;
-      coverHinge.rotation.y = active > 0.48 ? -(active - 0.48) * 1.25 : 0;
+      coverHinge.rotation.y = -active * 0.95;
+      fileCarrier.position.y = 1.13 + Math.max(0, active - 0.38) * 0.32;
     };
     return group;
   }
 
   function buildCollections() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(-2.45, 0.12, -2.9);
-    group.scale.setScalar(0.72);
+    group.position.set(-4.9, 0.14, -2.72);
+    group.scale.setScalar(0.85);
     group.rotation.y = -0.035;
 
     const shell = box(1.68, 1.3, 0.42, concreteDark);
@@ -365,8 +368,13 @@ function initHomeWorld() {
     for (let i = 0; i < 4; i++) {
       const drawer = new THREE.Group();
       drawer.position.set(0, 1.12 - i * 0.29, 0.1);
-      const tray = box(1.35, 0.21, 0.5, metalLight);
-      tray.position.z = 0.02;
+      const tray = box(1.35, 0.035, 0.5, metalLight);
+      tray.position.set(0, -0.08, 0.02);
+      for (const x of [-0.66, 0.66]) {
+        const side = box(0.035, 0.19, 0.5, metalLight);
+        side.position.set(x, 0, 0.02);
+        drawer.add(side);
+      }
       const face = box(1.45, 0.24, 0.065, concreteLight);
       face.position.z = 0.3;
       const handle = box(0.28, 0.025, 0.028, metal);
@@ -408,10 +416,19 @@ function initHomeWorld() {
 
   function buildCreations() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(3.35, 0.92, -2.48);
+    group.position.set(3.1, 0.8, 0.02);
+    group.scale.setScalar(0.85);
     group.rotation.y = -0.09;
 
-    const wallBracket = box(1.85, 1.98, 0.12, concreteDark);
+    for (const x of [-0.72, 0.72]) {
+      const leg = box(0.11, 0.9, 0.65, metal);
+      leg.position.set(x, -0.4, 0);
+      group.add(leg);
+    }
+    const bench = box(2.1, 0.14, 1.08, concreteDark);
+    bench.position.set(0, 0.04, 0.12);
+    group.add(bench);
+    const wallBracket = box(1.85, 0.2, 0.12, concreteDark);
     wallBracket.position.set(0, 1.04, -0.24);
     group.add(wallBracket);
     const frameLeft = box(0.09, 1.72, 0.22, metalLight);
@@ -436,8 +453,16 @@ function initHomeWorld() {
     cradle.add(tray);
     const artifact = new THREE.Group();
     artifact.position.set(0, -0.02, 0);
-    const artifactBody = new THREE.Mesh(new THREE.OctahedronGeometry(0.4, 1), artifactMaterial);
-    artifactBody.scale.set(0.82, 1.16, 0.82);
+    const artifactBody = box(0.62, 0.54, 0.42, artifactMaterial);
+    artifactBody.position.y = -0.1;
+    for (const x of [-0.24, 0.24]) {
+      const bracket = box(0.07, 0.7, 0.48, metalLight);
+      bracket.position.set(x, -0.05, 0);
+      artifact.add(bracket);
+    }
+    const lid = box(0.48, 0.035, 0.36, metal);
+    lid.position.set(0, 0.32, -0.02);
+    artifact.add(lid);
     artifactBody.castShadow = true;
     artifact.add(artifactBody);
     cradle.add(artifact);
@@ -445,16 +470,16 @@ function initHomeWorld() {
     const leftArm = new THREE.Group();
     leftArm.position.set(-0.58, 0, 0.04);
     const leftBeam = box(0.52, 0.08, 0.14, metal);
-    leftBeam.position.x = 0.25;
+    leftBeam.position.x = -0.1;
     const leftClamp = box(0.08, 0.5, 0.18, concreteLight);
-    leftClamp.position.set(0.52, 0, 0);
+    leftClamp.position.set(0.13, 0, 0);
     leftArm.add(leftBeam, leftClamp);
     const rightArm = new THREE.Group();
     rightArm.position.set(0.58, 0, 0.04);
     const rightBeam = box(0.52, 0.08, 0.14, metal);
-    rightBeam.position.x = -0.25;
+    rightBeam.position.x = 0.1;
     const rightClamp = box(0.08, 0.5, 0.18, concreteLight);
-    rightClamp.position.set(-0.52, 0, 0);
+    rightClamp.position.set(-0.13, 0, 0);
     rightArm.add(rightBeam, rightClamp);
     cradle.add(leftArm, rightArm);
 
@@ -483,7 +508,7 @@ function initHomeWorld() {
 
     let activation = 0;
     let target = 0;
-    group.userData.anchor = new THREE.Vector3(0.12, 0.96, 0.48);
+    group.userData.anchor = new THREE.Vector3(0, 2.08, 0.48);
     group.userData.focus = (state: boolean) => { target = state ? 0.38 : 0; };
     group.userData.activate = () => { target = 1; };
     group.userData.update = (dt: number) => {
@@ -500,8 +525,8 @@ function initHomeWorld() {
 
   function buildSites() {
     const group = new THREE.Group() as WorldObject;
-    group.position.set(4.35, 2.45, -2.96);
-    group.scale.setScalar(0.6);
+    group.position.set(4.55, 2.12, -2.89);
+    group.scale.setScalar(0.72);
     group.rotation.y = -0.025;
 
     const backplate = box(1.7, 1.58, 0.09, concreteDark);
@@ -555,12 +580,12 @@ function initHomeWorld() {
 
     let pulse = 0;
     let target = 0;
-    group.userData.anchor = new THREE.Vector3(0, 0.68, 0.28);
+    group.userData.anchor = new THREE.Vector3(0, 1.75, 0.28);
     group.userData.focus = (state: boolean) => { target = state ? 0.44 : 0; };
     group.userData.activate = () => { target = 1; };
-    group.userData.update = (dt: number, time: number) => {
+    group.userData.update = (dt: number) => {
       pulse += (target - pulse) * (1 - Math.pow(0.00004, dt));
-      siteSignal.emissiveIntensity = 0.35 + pulse * 0.82 + (reducedMotion ? 0 : Math.sin(time * 2.2) * 0.035);
+      siteSignal.emissiveIntensity = 0.35 + pulse * 0.82;
       shutter.position.x = pulse * 0.3;
       connector.position.z = 0.18 + pulse * 0.38;
       signalArm.scale.z = 0.08 + Math.max(0, pulse - 0.44) * 1.35;
@@ -603,6 +628,36 @@ function initHomeWorld() {
     wallBay.position.set(0, 2.78, -2.97);
     wallBay.castShadow = false;
     scene.add(wallBay);
+    // A continuous service datum ties both wings into the building.
+    for (const side of [-1, 1]) {
+      const bayWidth = side < 0 ? 4.3 : 3.55;
+      const bayCenter = side < 0 ? -4.05 : 3.68;
+      const ledge = box(bayWidth, 0.14, 0.74, concreteDark);
+      ledge.position.set(bayCenter, 1.36, -2.71);
+      const skirting = box(bayWidth, 0.18, 0.44, concreteDark);
+      skirting.position.set(bayCenter, 0.12, -2.83);
+      const rail = box(bayWidth, 0.045, 0.09, metalLight);
+      rail.position.set(bayCenter, 1.55, -2.94);
+      scene.add(ledge, skirting, rail);
+      for (const offset of [-bayWidth / 2, bayWidth / 2]) {
+        const pier = box(0.16, 4.65, 0.42, concrete);
+        pier.position.set(bayCenter + offset, 2.325, -2.94);
+        scene.add(pier);
+      }
+    }
+    // A wall conduit carries the external port beyond the room boundary.
+    const conduit = box(3.1, 0.07, 0.09, metal);
+    conduit.position.set(5.9, 2.46, -2.88);
+    scene.add(conduit);
+    const leftStorage = box(1.03, 1.07, 0.45, concreteDark);
+    leftStorage.position.set(-3.45, 0.69, -2.77);
+    scene.add(leftStorage);
+    for (let i = 0; i < 3; i++) {
+      const slot = box(0.82, 0.018, 0.05, metal);
+      slot.position.set(-3.45, 0.4 + i * 0.3, -2.52);
+      scene.add(slot);
+    }
+
   }
 
   buildEnvironment();
@@ -611,7 +666,25 @@ function initHomeWorld() {
   objects.collections = buildCollections();
   objects.creations = buildCreations();
   objects.sites = buildSites();
-  Object.values(objects).forEach((object) => scene.add(object));
+  Object.values(objects).forEach((object) => {
+    const hit = object.children.find((child) => child.userData.module);
+    object.userData.access = hit ? hit.position.clone().add(new THREE.Vector3(0, 0, 0.45)) : new THREE.Vector3(0, 1, 0);
+    const directoryMaterials = new Map<THREE.MeshStandardMaterial, THREE.MeshStandardMaterial>();
+    object.traverse((child) => {
+      if (!(child instanceof THREE.Mesh) || !(child.material instanceof THREE.MeshStandardMaterial)) return;
+      const original = child.material;
+      if (original.color.g < original.color.r * 0.5) return;
+      if (!directoryMaterials.has(original)) {
+        const material = original.clone();
+        material.emissive.setHex(0xb9ab86);
+        material.emissiveIntensity = 0;
+        directoryMaterials.set(original, material);
+      }
+      child.material = directoryMaterials.get(original)!;
+      child.userData.directoryMaterial = true;
+    });
+    scene.add(object);
+  });
 
   function copyFor(module: ModuleId) {
     return labels[module]?.querySelector("strong")?.textContent?.trim() || module.toUpperCase();
@@ -625,6 +698,7 @@ function initHomeWorld() {
   }
 
   function setFocus(module: ModuleId, source = focusSource) {
+    hasFocus = true;
     current = module;
     focusSource = source;
     Object.entries(objects).forEach(([key, object]) => object.userData.focus?.(key === module));
@@ -633,10 +707,10 @@ function initHomeWorld() {
     Object.entries(labels).forEach(([key, label]) => label?.classList.toggle("is-active", key === module));
   }
 
-  function worldAnchor(module: ModuleId) {
+  function worldAnchor(module: ModuleId, access = false) {
     const object = objects[module];
     object.updateWorldMatrix(true, false);
-    const local = object.userData.anchor || new THREE.Vector3();
+    const local = (access ? object.userData.access : object.userData.anchor) || new THREE.Vector3();
     return local.clone().applyMatrix4(object.matrixWorld);
   }
 
@@ -660,22 +734,9 @@ function initHomeWorld() {
   function updateOverlay() {
     const width = worldCanvas.clientWidth;
     const height = worldCanvas.clientHeight;
-    if (reticle) {
-      const p = project(current);
-      placeOverlay(
-        reticle,
-        THREE.MathUtils.clamp(p.x, 54, Math.max(54, width - 54)),
-        THREE.MathUtils.clamp(p.y, 54, Math.max(54, height - 54)),
-      );
-      reticle.classList.toggle("is-visible", focusSource === "keyboard");
-    }
-
     const offsets: Record<ModuleId, [number, number]> = {
-      personnel: [-116, -86],
-      collections: [-104, 34],
-      logs: [-76, -116],
-      creations: [58, 52],
-      sites: [-134, -8],
+      personnel: [-72, -35], collections: [-75, 50], logs: [-72, -35],
+      creations: [-65, -30], sites: [-65, -30],
     };
     (Object.keys(labels) as ModuleId[]).forEach((module) => {
       const label = labels[module];
@@ -684,7 +745,7 @@ function initHomeWorld() {
       const [x, y] = offsets[module];
       placeOverlay(
         label,
-        THREE.MathUtils.clamp(p.x + x, 22, Math.max(22, width - 136)),
+        THREE.MathUtils.clamp(p.x + x, 22, Math.max(22, width - 185)),
         THREE.MathUtils.clamp(p.y + y, 28, Math.max(28, height - 68)),
       );
     });
@@ -695,7 +756,10 @@ function initHomeWorld() {
     const height = worldCanvas.clientHeight || window.innerHeight;
     camera.aspect = width / height;
     const narrowFraming = Math.max(0, 1.5 - camera.aspect);
-    baseCamera.set(0.05, 2.96 + narrowFraming * 0.25, 10.8 + narrowFraming * 9.5);
+    const fitDistance = 6.1 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) - 1.8;
+    baseCamera.set(0.05, 2.96 + narrowFraming * 0.25, Math.max(10.8, fitDistance));
+    camera.position.copy(baseCamera);
+    camera.lookAt(baseTarget);
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.35));
     renderer.setSize(width, height, false);
@@ -713,9 +777,9 @@ function initHomeWorld() {
     activating = true;
     setFocus(module);
     objects[module].userData.activate?.();
-    localStorage.setItem("yibel-last-module", module);
+    try { localStorage.setItem("yibel-last-module", module); } catch { /* Navigation works without storage. */ }
 
-    const anchor = worldAnchor(module);
+    const anchor = worldAnchor(module, true);
     const direction = new THREE.Vector3().subVectors(camera.position, anchor).normalize();
     cameraGoal = anchor.clone().add(direction.multiplyScalar(5.45));
     lookGoal = anchor;
@@ -725,7 +789,7 @@ function initHomeWorld() {
   }
 
   const onPointerMove = (event: PointerEvent) => {
-    if (activating || shell?.classList.contains("is-menu-open")) return;
+    if (activating || shell?.classList.contains("is-menu-open") || shell?.classList.contains("is-settings-open")) return;
     pointerToNdc(event);
     pointerEase.set(pointer.x, pointer.y);
     raycaster.setFromCamera(pointer, camera);
@@ -737,13 +801,14 @@ function initHomeWorld() {
         setFocus(module, "pointer");
         worldCanvas.style.cursor = "pointer";
       } else {
+        clearFocus();
         worldCanvas.style.cursor = "default";
       }
     }
   };
 
   const onPointerDown = (event: PointerEvent) => {
-    if (activating || shell?.classList.contains("is-menu-open")) return;
+    if (activating || shell?.classList.contains("is-menu-open") || shell?.classList.contains("is-settings-open")) return;
     pointerToNdc(event);
     raycaster.setFromCamera(pointer, camera);
     const target = raycaster.intersectObjects(interactive, false)[0]?.object;
@@ -751,7 +816,13 @@ function initHomeWorld() {
     if (module) navigate(module);
   };
 
+  function clearFocus() {
+    hasFocus = false;
+    Object.values(objects).forEach((object) => object.userData.focus?.(false));
+    Object.values(labels).forEach((label) => label?.classList.remove("is-active"));
+  }
   const onPointerLeave = () => {
+    if (!activating && focusSource === "pointer") clearFocus();
     hovered = null;
     pointerEase.set(0, 0);
     worldCanvas.style.cursor = "default";
@@ -759,7 +830,8 @@ function initHomeWorld() {
 
   const focusOrder: ModuleId[] = ["personnel", "collections", "logs", "creations", "sites"];
   const onKeyDown = (event: KeyboardEvent) => {
-    if (!worldRoot.isConnected || shell?.classList.contains("is-menu-open")) return;
+    if (!worldRoot.isConnected || activating || shell?.classList.contains("is-menu-open") || shell?.classList.contains("is-settings-open")) return;
+    if (event.target instanceof Element && event.target.closest("button, a, input, textarea, select")) return;
     if (event.key === "ArrowRight" || event.key === "ArrowDown") {
       event.preventDefault();
       const index = Math.max(0, focusOrder.indexOf(current));
@@ -782,8 +854,15 @@ function initHomeWorld() {
   motionQuery.addEventListener("change", (event) => { reducedMotion = event.matches; }, { signal: listeners.signal });
 
   resize();
-  setFocus("logs");
+  // The shell owns the directory; the scene receives only selection intent.
+  document.addEventListener("yt:directory", ((event: CustomEvent<{ open: boolean; module: ModuleId }>) => {
+    menuModule = event.detail.open && objects[event.detail.module] ? event.detail.module : null;
+  }) as EventListener, { signal: listeners.signal });
 
+  if (shell?.classList.contains("is-menu-open")) {
+    const selected = shell.querySelector<HTMLElement>("[data-yt-menu-link].is-active")?.dataset.ytModule as ModuleId;
+    menuModule = objects[selected] ? selected : "personnel";
+  }
   const geometries = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
   const textures = new Set<THREE.Texture>();
@@ -795,6 +874,7 @@ function initHomeWorld() {
     window.clearTimeout(navigationTimer);
     listeners.abort();
     scene.traverse((child) => {
+      if (child instanceof THREE.DirectionalLight) child.shadow.dispose();
       if (!(child instanceof THREE.Mesh)) return;
       geometries.add(child.geometry);
       const meshMaterials = Array.isArray(child.material) ? child.material : [child.material];
@@ -828,17 +908,31 @@ function initHomeWorld() {
     if (!paused) elapsed += dt;
 
     if (!paused) {
-      Object.values(objects).forEach((object) => object.userData.update?.(dt, elapsed));
+      Object.values(objects).forEach((object) => object.userData.update?.(reducedMotion ? 1 : dt, elapsed));
     }
 
-    const focusAnchor = worldAnchor(current);
+    // While paused, only a small local material response may change.
+    // Mechanical poses, time and camera remain exactly where the menu interrupted them.
+    (Object.keys(objects) as ModuleId[]).forEach((module) => {
+      const old = menuResponses.get(module) || 0;
+      const value = THREE.MathUtils.lerp(old, menuModule === module ? 1 : 0, reducedMotion ? 1 : 1 - Math.exp(-12 * dt));
+      menuResponses.set(module, value);
+      objects[module].traverse((child) => {
+        if (!(child instanceof THREE.Mesh) || !child.userData.directoryMaterial) return;
+        const material = child.material as THREE.MeshStandardMaterial;
+        material.emissiveIntensity = value * 0.095;
+      });
+    });
+    if (!paused) {
+    const focusAnchor = hasFocus ? worldAnchor(current, true) : baseTarget;
     const parallax = reducedMotion ? 0 : 1;
     const focusCamera = baseCamera.clone().add(new THREE.Vector3(focusAnchor.x * 0.025, (focusAnchor.y - 1.2) * 0.018, 0));
     const desired = cameraGoal || focusCamera.add(new THREE.Vector3(pointerEase.x * 0.16 * parallax, pointerEase.y * 0.07 * parallax, 0));
-    camera.position.lerp(desired, 1 - Math.pow(0.00003, dt));
+    camera.position.lerp(reducedMotion ? baseCamera : desired, reducedMotion ? 1 : 1 - Math.pow(0.00003, dt));
     const focusTarget = baseTarget.clone().lerp(focusAnchor, 0.055);
     const target = lookGoal || focusTarget.add(new THREE.Vector3(pointerEase.x * 0.08 * parallax, pointerEase.y * 0.035 * parallax, 0));
-    camera.lookAt(target);
+    camera.lookAt(reducedMotion ? baseTarget : target);
+    }
 
     updateOverlay();
     renderer.render(scene, camera);
