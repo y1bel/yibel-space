@@ -11,8 +11,16 @@ const hrefFor = Object.fromEntries(systemNavigation.map((item) => [item.id, item
 <section class="yt-world3d" data-yt-world3d>
   <canvas class="yt-world3d__canvas" data-yt-world-canvas aria-label={copy.archiveWorld} aria-describedby="yt-world-instructions"></canvas>
 
+  <div class="yt-world3d__architecture" aria-hidden="true">
+    <span class="yt-world3d__axis yt-world3d__axis--left">SELF / STORED</span>
+    <span class="yt-world3d__axis yt-world3d__axis--center">ACTIVE RECORD</span>
+    <span class="yt-world3d__axis yt-world3d__axis--right">CREATED / EXTERNAL</span>
+    <i class="yt-world3d__datum yt-world3d__datum--left"></i>
+    <i class="yt-world3d__datum yt-world3d__datum--right"></i>
+  </div>
+
   <div class="yt-world3d__brand" aria-hidden="true">
-    <b>Y</b><span>YIBEL / ARCHIVE</span>
+    <b>Y</b><span>YIBEL / PRIVATE ARCHIVE</span>
   </div>
 
   <div class="yt-world3d__label yt-world3d__label--personnel" data-yt-world-label="personnel">
@@ -31,24 +39,18 @@ const hrefFor = Object.fromEntries(systemNavigation.map((item) => [item.id, item
     <i></i><strong data-yt-copy="sites">{copy.sites}</strong><span data-yt-copy="sitesObject">{copy.sitesObject}</span>
   </div>
 
-  <div class="yt-world3d__reticle" data-yt-world-reticle aria-hidden="true">
-    <span></span><span></span><span></span><span></span>
-  </div>
+  <div class="yt-world3d__reticle" data-yt-world-reticle aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 
   <div class="yt-world3d__context" data-yt-world-context id="yt-world-instructions">
+    <small>ARCHIVE ACCESS / SELECTED OBJECT</small>
     <strong data-yt-copy="logs">{copy.logs}</strong>
     <span data-yt-copy="worldOpenHint">{copy.worldOpenHint}</span>
   </div>
 
+  <div class="yt-world3d__index" aria-hidden="true"><span>05 MODULES</span><span>LOCAL ARCHIVE</span><span>SESSION ACTIVE</span></div>
   <div class="yt-world3d__tab"><kbd>TAB</kbd><span data-yt-copy="openMenu">{copy.openMenu}</span></div>
 
-  <div hidden data-yt-world-routes
-    data-personnel={hrefFor.personnel}
-    data-logs={hrefFor.logs}
-    data-creations={hrefFor.creations}
-    data-collections={hrefFor.collections}
-    data-sites={hrefFor.sites}
-  ></div>
+  <div hidden data-yt-world-routes data-personnel={hrefFor.personnel} data-logs={hrefFor.logs} data-creations={hrefFor.creations} data-collections={hrefFor.collections} data-sites={hrefFor.sites}></div>
 </section>
 
 <script>
