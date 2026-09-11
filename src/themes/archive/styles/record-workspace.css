@@ -1,0 +1,33 @@
+/* The reading desk uses the same directory as its parent module. */
+.yt-terminal--workspace .yt-record-workspace{display:grid;grid-template-columns:minmax(0,1fr) 220px;min-height:0;gap:28px;border:0;background:transparent;--a1-archive-border:#c6c9bc;--a1-archive-primary:#343d2c;--a1-archive-secondary:#646d5b;--a1-archive-red:#85352d;--a1-archive-panel:#f2f0e9;--a1-archive-text:#333a2c}
+.yt-record-workspace .a1-paged-document{min-width:0}
+.yt-record-workspace .a1-document-viewer{padding:0;border:0;background:transparent}
+.yt-record-workspace .a1-file-metadata{position:static;padding:0;border:0;border-top:2px solid #929b84;background:transparent;color:#343d2c;min-width:0}
+.yt-record-workspace .a1-file-metadata header{padding:18px 0;color:#343d2c;font-size:12px;flex-wrap:wrap;gap:10px}
+.yt-record-workspace .a1-file-metadata dl{padding:0}
+.yt-record-workspace .a1-file-metadata dt{font-size:12px;line-height:1.7;color:#646d5b}
+.yt-record-workspace .a1-file-metadata dd{font-size:14px;line-height:1.7;color:#343d2c;overflow-wrap:anywhere}
+.yt-record-workspace .a1-file-metadata section{padding:20px 0}
+.yt-record-workspace .a1-file-metadata h2{font-size:12px;color:#646d5b}
+.yt-record-workspace .a1-file-metadata p,.yt-record-workspace .a1-file-metadata li{font-size:14px;line-height:1.8;color:#343d2c}
+.yt-record-workspace .a1-paged-document__nav{flex-wrap:wrap;gap:16px;justify-content:space-between;border-top:1px solid #c6c9bc;padding:20px 0}
+.yt-terminal .yt-record-workspace .a1-paged-document__btn{min-height:44px;padding:10px 12px;border:1px solid #b4baaa;font-size:14px;color:#343d2c}
+.yt-record-workspace .a1-paged-document__indicator{flex-wrap:wrap;max-width:100%;gap:8px}
+.yt-record-workspace .a1-paged-document__dot{width:24px;height:24px;border:1px solid #939c85;border-radius:0;background:transparent}
+.yt-record-workspace .a1-paged-document__dot.is-active{transform:none;background:#6d795e}
+@media(max-width:1250px){.yt-terminal--workspace .yt-record-workspace{grid-template-columns:minmax(0,1fr)}.yt-record-workspace .a1-file-metadata{max-width:700px}}
+@media(max-width:900px){
+ .yt-record-workspace .a1-paged-document__viewport,.yt-record-workspace .a1-paged-document__nav{display:none!important}
+ .yt-record-workspace .a1-paged-document__measure,.yt-record-workspace .a1-paged-document__measure[data-a1-ready=true]{display:block!important;position:relative;left:auto;top:auto;width:100%;visibility:visible;pointer-events:auto}
+ .yt-record-workspace .a1-document-viewer__canvas{width:100%;min-height:0;max-width:none;box-shadow:none}
+ .yt-record-workspace .a1-case-file{display:block;width:100%;height:auto!important;min-height:0;padding:24px 18px;overflow:visible}
+ .yt-record-workspace .a1-case-file__body{height:auto!important;max-height:none!important;overflow:visible;padding:0}
+ .yt-record-workspace .a1-case-file__content{font-size:16px;line-height:1.9;overflow-wrap:anywhere}
+ .yt-record-workspace .a1-case-header{padding:0 0 24px}
+ .yt-record-workspace .a1-case-file__footer{margin-top:28px}
+ .yt-record-workspace .a1-case-header h1{max-width:none;font-size:26px;line-height:1.4}
+ .yt-record-workspace .a1-stamp-overlay{display:none}
+ .yt-record-workspace pre,.yt-record-workspace table{max-width:100%;overflow-x:auto;display:block}
+ .yt-record-workspace img{max-width:100%;height:auto}
+ .yt-record-workspace .a1-file-metadata{margin-top:24px}
+}

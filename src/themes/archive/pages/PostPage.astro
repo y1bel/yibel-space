@@ -1,7 +1,8 @@
 ---
 import type { PostPageData } from "@core/theme";
-import ArchiveShell from "../components/ArchiveShell.astro";
-import ArchiveIndex from "../components/ArchiveIndex.astro";
+import SystemShell from "../components/SystemShell.astro";
+import { getMessages } from "@core/i18n";
+import { routes } from "@core/routing";
 import CaseHeader from "../components/CaseHeader.astro";
 import DocumentViewer from "../components/DocumentViewer.astro";
 import FileMetadataPanel from "../components/FileMetadataPanel.astro";
@@ -10,6 +11,7 @@ import { getArchivePostMetadata } from "../metadata";
 
 interface Props { data: PostPageData; }
 const { data } = Astro.props;
+const copy = getMessages();
 const { metadata, body: Body } = data.post;
 const archiveMetadata = getArchivePostMetadata(metadata);
 const formatDate = (date: Date) => new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "long", day: "2-digit" }).format(date).toUpperCase();
@@ -19,13 +21,14 @@ const documentType = archiveMetadata.documentType ?? "record";
 const recordStatus = archiveMetadata.recordStatus ?? "released";
 const dateOfRecord = archiveMetadata.receivedAt ?? formatDate(metadata.publishedAt);
 const indexTerms = archiveMetadata.indexTerms ?? metadata.tags;
-const researchNotes = archiveMetadata.researchNotes ?? metadata.description ?? "No research notes are available for this record.";
+const researchNotes = archiveMetadata.researchNotes ?? metadata.description ?? copy.noResearchNotes;
 const redactions = archiveMetadata.redactions ?? [];
 ---
 
-<ArchiveShell section="RESEARCH & RECORDS" title={`CASE FILE / ${fileNumber}`} classification={classification} workspace>
-  <section class="a1-workspace" aria-label="Archive workspace">
-    <ArchiveIndex currentFile={fileNumber} classification={classification.toUpperCase()} />
+<style is:global>@import "../styles/archive.css"; @import "../styles/record-workspace.css";</style>
+<SystemShell active="logs" code={fileNumber} workspace>
+  <nav class="yt-inline-links" aria-label={copy.logs}><a href={routes.archive} data-yt-copy="returnLogs">{copy.returnLogs}</a><a href={routes.timeline} data-yt-copy="timeline">{copy.timeline}</a></nav>
+  <section class="a1-workspace yt-record-workspace" aria-label="Archive workspace">
     <div class="a1-paged-document" data-a1-paged-document data-a1-record-id={fileNumber} data-a1-document-type={documentType} data-a1-classification={classification} data-a1-redactions={JSON.stringify(redactions)}>
       <div class="a1-paged-document__measure" aria-hidden="true">
         <DocumentViewer fileNumber={fileNumber}>
@@ -49,24 +52,24 @@ const redactions = archiveMetadata.redactions ?? [];
       <div class="a1-paged-document__nav" data-a1-nav hidden>
         <button class="a1-paged-document__btn" data-a1-prev aria-label="Previous page">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          <span>PREV</span>
+          <span data-yt-copy="previousPage">{copy.previousPage}</span>
         </button>
         <div class="a1-paged-document__indicator" data-a1-indicator>01 / 01</div>
         <button class="a1-paged-document__btn" data-a1-next aria-label="Next page">
-          <span>NEXT</span>
+          <span data-yt-copy="nextPage">{copy.nextPage}</span>
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
       </div>
     </div>
     <FileMetadataPanel items={[
-      { label: "FILE NUMBER", value: fileNumber },
-      { label: "DOCUMENT TYPE", value: documentType.toUpperCase() },
-      { label: "CLASSIFICATION", value: classification.toUpperCase() },
-      { label: "RECORD STATUS", value: recordStatus.toUpperCase() },
-      { label: "DATE OF RECORD", value: dateOfRecord }
+      { label: copy.fileNumber, key: "fileNumber", value: fileNumber },
+      { label: copy.documentType, key: "documentType", value: documentType.toUpperCase() },
+      { label: copy.classificationLabel, key: "classificationLabel", value: classification.toUpperCase() },
+      { label: copy.projectStatus, key: "projectStatus", value: recordStatus.toUpperCase() },
+      { label: copy.dateOfRecord, key: "dateOfRecord", value: dateOfRecord }
     ]} tags={indexTerms} researchNotes={researchNotes} />
   </section>
-</ArchiveShell>
+</SystemShell>
 
 <script>
   const documentContent = document.querySelector("[data-a1-document-content]");
@@ -133,7 +136,18 @@ const redactions = archiveMetadata.redactions ?? [];
   const recordId = root.getAttribute("data-a1-record-id") || "";
   const documentType = root.getAttribute("data-a1-document-type") || "RECORD";
 
-  const isMobile = window.matchMedia("(max-width: 720px)").matches;
+  const mobileQuery = window.matchMedia("(max-width: 900px)");
+  const isMobile = mobileQuery.matches;
+  let pagingKeys;
+  mobileQuery.addEventListener("change", () => {
+    if (pagingKeys) document.removeEventListener("keydown", pagingKeys);
+    const measure = root.querySelector(".a1-paged-document__measure");
+    if (measure) {
+      measure.removeAttribute("data-a1-ready");
+      measure.setAttribute("aria-hidden", String(!mobileQuery.matches));
+    }
+    if (!mobileQuery.matches) requestAnimationFrame(runPaging);
+  });
 
   if (isMobile) {
     const measureWrap = root.querySelector(".a1-paged-document__measure");
@@ -476,10 +490,14 @@ const redactions = archiveMetadata.redactions ?? [];
       nextBtn.onclick = () => goToPage(currentPage + 1);
     }
 
+    if (pagingKeys) document.removeEventListener("keydown", pagingKeys);
     const keyHandler = (e) => {
+      if (mobileQuery.matches || document.querySelector("[data-yt-shell]")?.classList.contains("is-settings-open")) return;
+      if (e.target instanceof Element && e.target.closest("button, a, input, textarea, [role=tablist]")) return;
       if (e.key === "ArrowLeft") goToPage(currentPage - 1);
       else if (e.key === "ArrowRight") goToPage(currentPage + 1);
     };
+    pagingKeys = keyHandler;
     document.addEventListener("keydown", keyHandler);
 
     update();

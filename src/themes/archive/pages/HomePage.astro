@@ -1,9 +1,16 @@
 ---
 import type { HomePageData } from "@core/theme";
 import SystemShell from "../components/SystemShell.astro";
+import HomeWorld from "../components/HomeWorld.astro";
 
 interface Props { data: HomePageData; }
 const isEntry = Astro.url.pathname === "/";
 ---
 
-<SystemShell entry={isEntry} home={!isEntry} code="A-001" />
+{isEntry ? (
+  <SystemShell entry code="A-001" />
+) : (
+  <SystemShell home code="A-001">
+    <HomeWorld />
+  </SystemShell>
+)}

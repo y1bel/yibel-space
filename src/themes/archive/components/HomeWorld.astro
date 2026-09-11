@@ -1,0 +1,43 @@
+---
+import { getMessages } from "@core/i18n";
+import { systemNavigation } from "@core/navigation";
+
+const copy = getMessages();
+const hrefFor = Object.fromEntries(systemNavigation.map((item) => [item.id, item.href])) as Record<string, string>;
+---
+
+<style is:global>@import "../styles/home-world.css";</style>
+
+<section class="yt-world3d" data-yt-world3d>
+  <canvas class="yt-world3d__canvas" data-yt-world-canvas tabindex="-1" aria-label={copy.archiveWorld} aria-describedby="yt-world-instructions"></canvas>
+
+  <div class="yt-world3d__brand">
+    <b aria-hidden="true">Y</b><span data-yt-copy="officeTitle">{copy.officeTitle}</span>
+  </div>
+
+  <span class="yt-world3d__annotation" data-office-annotation hidden></span>
+  <div class="yt-world3d__context" id="yt-world-instructions">
+    <div class="yt-world3d__instruction">
+      <strong data-office-title data-yt-copy="officeTitle">{copy.officeTitle}</strong>
+      <p data-office-hint data-yt-copy="officeWelcome">{copy.officeWelcome}</p>
+      <span class="yt-world3d__progress" data-office-progress hidden aria-hidden="true"></span>
+    </div>
+    <button type="button" class="yt-world3d__action" data-office-action data-yt-copy="officePickCard">{copy.officePickCard}</button>
+  </div>
+  <p class="yt-world3d__live" data-office-live aria-live="polite" aria-atomic="true"></p>
+
+  <button type="button" class="yt-world3d__tab" data-yt-home-menu aria-expanded="false" aria-controls="yt-system-menu"><kbd>TAB</kbd><span data-yt-copy="openMenu">{copy.openMenu}</span></button>
+
+  <div class="yt-world3d__fallback" data-yt-world-fallback>
+    <p data-yt-copy="worldFallback">{copy.worldFallback}</p>
+    <nav aria-label={copy.directoryTitle}>
+      {systemNavigation.map((item) => <a href={item.href} data-yt-copy={item.id}>{copy[item.id]}</a>)}
+    </nav>
+  </div>
+
+  <div hidden data-yt-world-routes data-personnel={hrefFor.personnel} data-logs={hrefFor.logs} data-creations={hrefFor.creations} data-collections={hrefFor.collections} data-sites={hrefFor.sites}></div>
+</section>
+
+<script>
+  import "../interactions/home-world";
+</script>

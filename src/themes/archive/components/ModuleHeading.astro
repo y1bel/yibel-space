@@ -1,0 +1,10 @@
+---
+import { getMessages, type SystemCopy } from "@core/i18n";
+interface Props { title: keyof SystemCopy; summary: keyof SystemCopy; code: string; count?: number; }
+const { title, summary, code, count } = Astro.props;
+const copy = getMessages();
+---
+<header class="yt-section__heading">
+  <div><p class="yt-eyebrow">{code} / <span data-yt-copy="publicRecord">{copy.publicRecord}</span></p><h1 data-yt-copy={title}>{copy[title]}</h1><p data-yt-copy={summary}>{copy[summary]}</p></div>
+  {count !== undefined && <div class="yt-section__count">{count}<small data-yt-copy="recordsCount">{copy.recordsCount}</small></div>}
+</header>

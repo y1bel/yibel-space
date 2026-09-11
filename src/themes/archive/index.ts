@@ -1,6 +1,9 @@
 import PlaceholderPage from "./components/PlaceholderPage.astro";
 import { manifest } from "./manifest";
 import type { ThemeDefinition } from "@core/theme";
+import ProjectsPage from "./pages/ProjectsPage.astro";
+import ProjectPage from "./pages/ProjectPage.astro";
+import TimelinePage from "./pages/TimelinePage.astro";
 import HomePage from "./pages/HomePage.astro";
 import ArchivePage from "./pages/ArchivePage.astro";
 import PostPage from "./pages/PostPage.astro";
@@ -16,9 +19,9 @@ const archiveTheme: ThemeDefinition = {
   pages: {
     home: HomePage,
     archive: ArchivePage,
-    projects: PlaceholderPage,
-    project: PlaceholderPage,
-    timeline: PlaceholderPage,
+    projects: ProjectsPage,
+    project: ProjectPage,
+    timeline: TimelinePage,
     now: PlaceholderPage,
     about: PlaceholderPage,
     post: PostPage,

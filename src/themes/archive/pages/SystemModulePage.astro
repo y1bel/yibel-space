@@ -2,17 +2,24 @@
 import type { SystemModulePageData } from "@core/theme";
 import { getMessages } from "@core/i18n";
 import SystemShell from "../components/SystemShell.astro";
-
+import ModuleHeading from "../components/ModuleHeading.astro";
+import SectionTabs from "../components/SectionTabs.astro";
+import EmptyRecord from "../components/EmptyRecord.astro";
+import ProjectLedger from "../components/ProjectLedger.astro";
 interface Props { data: SystemModulePageData; }
 const { data } = Astro.props;
 const copy = getMessages();
-const labels = { creations: copy.moduleCreations, collections: copy.moduleCollections, sites: copy.moduleSites } as const;
-const codes = { creations: "C-003", collections: "C-004", sites: "C-005" } as const;
+const collection = data.module === "collections";
+const code = { creations: "C-003", collections: "C-004", sites: "C-005" }[data.module];
+const tabs = collection ? [{ id: "index", label: "referenceIndex" }, { id: "notes", label: "privateNotes" }] as const : [{ id: "index", label: "connectionIndex" }, { id: "notes", label: "connectionNotes" }] as const;
 ---
-
-<SystemShell workspace active={data.module} code={codes[data.module]}>
-  <section class="yt-module yt-placeholder" aria-labelledby="yt-module-title">
-    <header><span>MODULE {codes[data.module]}</span><p>INTAKE STATE // OPEN</p></header>
-    <div class="yt-placeholder__field"><span aria-hidden="true"></span><div><p>{String(labels[data.module]).toUpperCase()}</p><h1 id="yt-module-title">{labels[data.module]}</h1><small data-yt-copy="placeholder">{copy.placeholder}</small></div></div>
-  </section>
+<SystemShell workspace active={data.module} code={code}>
+  {data.module === "creations" ? <ProjectLedger projects={data.projects ?? []} /> : <section class="yt-section">
+    <ModuleHeading title={data.module} summary={collection ? "collectionsSummary" : "sitesSummary"} code={code} count={0} />
+    <SectionTabs id={data.module} tabs={[...tabs]} />
+    <div class="yt-tab-panel" id={`${data.module}-panel-index`} role="tabpanel" aria-labelledby={`${data.module}-tab-index`} tabindex="0"><EmptyRecord title={collection ? "noCollections" : "noSites"} description={collection ? "noCollectionsNote" : "noSitesNote"} /></div>
+    <div class="yt-tab-panel" id={`${data.module}-panel-notes`} role="tabpanel" aria-labelledby={`${data.module}-tab-notes`} tabindex="0" hidden>
+      {collection ? <EmptyRecord title="noNotes" description="noNotesNote" /> : <p class="yt-reading-note" data-yt-copy="sitesNote">{copy.sitesNote}</p>}
+    </div>
+  </section>}
 </SystemShell>
