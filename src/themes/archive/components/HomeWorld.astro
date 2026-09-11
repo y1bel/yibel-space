@@ -11,31 +11,20 @@ const hrefFor = Object.fromEntries(systemNavigation.map((item) => [item.id, item
 <section class="yt-world3d" data-yt-world3d>
   <canvas class="yt-world3d__canvas" data-yt-world-canvas tabindex="-1" aria-label={copy.archiveWorld} aria-describedby="yt-world-instructions"></canvas>
 
-  <div class="yt-world3d__brand" aria-hidden="true">
-    <b>Y</b><span data-yt-copy="archiveBrand">{copy.archiveBrand}</span>
+  <div class="yt-world3d__brand">
+    <b aria-hidden="true">Y</b><span data-yt-copy="officeTitle">{copy.officeTitle}</span>
   </div>
 
-  <div class="yt-world3d__label yt-world3d__label--personnel" data-yt-world-label="personnel">
-    <strong data-yt-copy="personnel">{copy.personnel}</strong><span data-yt-copy="personnelObject">{copy.personnelObject}</span>
+  <span class="yt-world3d__annotation" data-office-annotation hidden></span>
+  <div class="yt-world3d__context" id="yt-world-instructions">
+    <div class="yt-world3d__instruction">
+      <strong data-office-title data-yt-copy="officeTitle">{copy.officeTitle}</strong>
+      <p data-office-hint data-yt-copy="officeWelcome">{copy.officeWelcome}</p>
+      <span class="yt-world3d__progress" data-office-progress hidden aria-hidden="true"></span>
+    </div>
+    <button type="button" class="yt-world3d__action" data-office-action data-yt-copy="officePickCard">{copy.officePickCard}</button>
   </div>
-  <div class="yt-world3d__label yt-world3d__label--collections" data-yt-world-label="collections">
-    <strong data-yt-copy="collections">{copy.collections}</strong><span data-yt-copy="collectionsObject">{copy.collectionsObject}</span>
-  </div>
-  <div class="yt-world3d__label yt-world3d__label--logs" data-yt-world-label="logs">
-    <strong data-yt-copy="logs">{copy.logs}</strong><span data-yt-copy="logsObject">{copy.logsObject}</span>
-  </div>
-  <div class="yt-world3d__label yt-world3d__label--creations" data-yt-world-label="creations">
-    <strong data-yt-copy="creations">{copy.creations}</strong><span data-yt-copy="creationsObject">{copy.creationsObject}</span>
-  </div>
-  <div class="yt-world3d__label yt-world3d__label--sites" data-yt-world-label="sites">
-    <strong data-yt-copy="sites">{copy.sites}</strong><span data-yt-copy="sitesObject">{copy.sitesObject}</span>
-  </div>
-
-  <div class="yt-world3d__context" data-yt-world-context id="yt-world-instructions">
-    <small data-yt-copy="selectedRecord">{copy.selectedRecord}</small>
-    <strong data-yt-copy="logs">{copy.logs}</strong>
-    <span data-yt-copy="worldOpenHint">{copy.worldOpenHint}</span>
-  </div>
+  <p class="yt-world3d__live" data-office-live aria-live="polite" aria-atomic="true"></p>
 
   <button type="button" class="yt-world3d__tab" data-yt-home-menu aria-expanded="false" aria-controls="yt-system-menu"><kbd>TAB</kbd><span data-yt-copy="openMenu">{copy.openMenu}</span></button>
 

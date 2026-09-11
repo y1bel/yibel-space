@@ -61,127 +61,25 @@ DOM/Astro/CSS owns:
 
 Do not render navigation/body copy into WebGL.
 
-## Home world spatial hierarchy
+## Home office (updated user direction)
 
-The world must not read as five equal buttons.
+The latest brief replaces wall-mounted and freestanding archive machines with a personal office. One working desk is the spatial anchor; objects are useful, recognizable belongings rather than five sculptural entrances. Preserve negative space, quiet daylight, a desk lamp, paper, restrained green enamel and worn wood.
 
-Spatial meaning:
+- Personnel: a loose access card and reader. Pick up and insert, or drag into the reader. A misplaced card returns to the desk. This is a navigation metaphor, not security authentication.
+- Logs: the central bound record book. Open its hinged cover, then retrieve/read a page.
+- Collections: a shallow desktop card catalogue. Pull the actual drawer toward the viewer.
+- Creations: a screw-driven assembly jig with a part being fitted. Rotate the handwheel to close the clamp and seat the part.
+- Sites: a telephone. Lift the receiver upward or hold it briefly to connect outside the archive.
 
-- left = SELF / STORED
-- center = RECORD / ACTIVE CORE
-- right = CREATED / EXTERNAL
+Desktop keeps stored/personal objects left, the record book central, making/communication right. Mobile rearranges these same objects along a narrower desk, rather than pushing the camera so far away that objects disappear. Camera bounds and fog must be tested at narrow aspect ratios.
 
-Visual hierarchy:
+## Motion and affordances
 
-1. `LOGS` is the largest and primary focal object in the center.
-2. `PERSONNEL` and `CREATIONS` are medium secondary objects.
-3. `COLLECTIONS` and `SITES` are smaller tertiary objects.
+Idle objects are still. Hover or keyboard focus outlines the actual object's geometry and shows one restrained DOM annotation. No floating red dots or reticles. Red is reserved for the reader's physical status indicator.
 
-Use substantial negative space. The scene should feel calm and intentional, not like a game level or exhibition hall.
+Manipulation changes the relevant physical component, not a generic object scale or lift. Partial gestures can be cancelled; route handoff follows completion. A contextual DOM action button and keyboard provide equivalent operation for every gesture. Escape cancels and resets. Respect pointer capture, cancellation, reduced motion and navigation cleanup.
 
-### PERSONNEL
-
-Location: left foreground.
-
-Physical metaphor: dossier stand, identity file apparatus, personnel archive frame, registration cradle.
-
-It should read as a physical file/identity mechanism rather than an abstract sculpture.
-
-Focus motion: a file layer, panel, or sheet subtly opens/rotates; camera can bias slightly left.
-
-Activate motion: continue the file-reading action before navigation.
-
-### COLLECTIONS
-
-Location: left, lower and/or slightly behind Personnel.
-
-Physical metaphor: archive drawers, specimen storage, collection cabinet.
-
-It must visibly contain storage units.
-
-Focus/activate motion should move an actual drawer or storage element, not the whole object.
-
-### LOGS
-
-Location: center. Primary visual anchor.
-
-Physical metaphor: split archive monolith, record terminal, active record-processing core.
-
-It may use split shells around a central seam/core, but should remain simple, stable, and architectural—not a normal computer or sci-fi console.
-
-Idle: extremely subtle internal breathing/mechanical motion.
-
-Focus: seam brightens slightly, shell feels unlocked, camera aligns.
-
-Activate: shell separates, internal access structure appears, camera dollies forward, then route/system transition occurs.
-
-### CREATIONS
-
-Location: right foreground.
-
-Physical metaphor: artifact registry, prototype display, making/alignment apparatus.
-
-Avoid a meaningless ring + floating rock. The device should imply measuring, displaying, aligning, or constructing a created object.
-
-Focus: mechanism calibrates; artifact may float/rotate very slowly.
-
-Activate: structural elements align/separate and the artifact responds before navigation.
-
-### SITES
-
-Location: right rear, edge, or wall-mounted.
-
-Physical metaphor: external port, communication node, uplink, routing junction.
-
-It represents connection outside the local archive, so it should feel spatially peripheral.
-
-Focus/activate: restrained connector/port alignment or status response.
-
-Do not make it another floor sculpture.
-
-## Motion model
-
-Every world object has three states:
-
-- IDLE
-- FOCUS
-- ACTIVATE
-
-### IDLE
-
-Very quiet. Long-duration micro motion only: camera breathing, tiny seam pulse, artifact drift, minimal mechanism settling.
-
-Do not make every object continuously move.
-
-### FOCUS
-
-Triggered by real Three.js raycasting or keyboard focus.
-
-Expected sequence:
-
-1. focus locks to object
-2. projected DOM reticle/label moves to its anchor
-3. object-specific mechanical response occurs
-4. camera target subtly biases toward it
-5. non-focused objects may lose a small amount of attention
-
-Typical duration: ~220–380ms.
-
-Never use generic `translateY(-6px)` as the primary interaction.
-
-### ACTIVATE
-
-Click/Enter should feel like operating a physical game-world object.
-
-Typical sequence:
-
-- 0ms: focus lock
-- ~80ms: status response
-- ~150–450ms: object-specific mechanism
-- ~350–650ms: short camera dolly
-- ~550–800ms: navigation/system handoff
-
-Use restrained easing and damping.
+System Menu freezes object/camera motion, while a very faint outline links its selected row to the corresponding object. SystemShell remains the sole owner of directory state.
 
 ## Camera
 
@@ -208,7 +106,7 @@ Renderer should use sensible quality limits: capped device pixel ratio, correct 
 
 World labels are restrained annotations, not HUD panels.
 
-Use thin typography, generous spacing, minimal focus brackets, and a tiny red point if needed.
+Use thin typography, generous spacing, no reticle or floating status dots.
 
 Projected labels must handle resize and stay on-screen. Avoid per-frame `innerHTML` updates and layout thrashing.
 

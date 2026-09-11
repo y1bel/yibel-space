@@ -1,974 +1,400 @@
 import * as THREE from "three";
+import { getMessages, type SystemCopy } from "@core/i18n";
+import { buildOffice, moduleOrder, type ModuleId } from "./office-scene";
+import { acceptsCard, clampProgress, gestureProgress } from "./office-actions";
 
-type ModuleId = "personnel" | "logs" | "creations" | "collections" | "sites";
-type WorldUpdate = (dt: number, elapsed: number) => void;
-
-type WorldObject = THREE.Group & {
-  userData: {
-    module?: ModuleId;
-    hit?: THREE.Object3D;
-    update?: WorldUpdate;
-    focus?: (active: boolean) => void;
-    activate?: () => void;
-    anchor?: THREE.Vector3;
-    access?: THREE.Vector3;
-  };
-};
-
-declare global {
-  interface Window {
-    __ytHomeWorldCleanup?: () => void;
-    __ytHomeWorldInit?: () => void;
-  }
+declare global { interface Window { __ytHomeWorldCleanup?: () => void; __ytHomeWorldInit?: () => void; } }
+type CopyKey = keyof SystemCopy;
+type Stage = "idle" | "held" | "opened" | "committing";
+interface Gesture {
+  id: ModuleId; pointer: number; x: number; y: number; point: THREE.Vector3;
+  dx: number; dy: number; dz: number; base: number; heldMs: number; moved: boolean;
+  lastAngle: number; angle: number; useAngle: boolean; center: THREE.Vector2;
+  cardOffset: THREE.Vector3;
 }
 
 function initHomeWorld() {
   const root = document.querySelector<HTMLElement>("[data-yt-world3d]");
-  const canvas = document.querySelector<HTMLCanvasElement>("[data-yt-world-canvas]");
+  const canvas = root?.querySelector<HTMLCanvasElement>("[data-yt-world-canvas]");
   if (root?.dataset.ytWorldInitialized === "true") return;
   window.__ytHomeWorldCleanup?.();
-
-  if (root && canvas) {
+  if (!root || !canvas) return;
   root.dataset.ytWorldInitialized = "true";
-  const worldRoot = root;
-  const worldCanvas = canvas;
   const listeners = new AbortController();
-  const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-  let reducedMotion = motionQuery.matches;
+  const { signal } = listeners;
+  const shell = document.querySelector<HTMLElement>("[data-yt-shell]");
+  const fallback = root.querySelector<HTMLElement>("[data-yt-world-fallback]");
+  const title = root.querySelector<HTMLElement>("[data-office-title]");
+  const hint = root.querySelector<HTMLElement>("[data-office-hint]");
+  const action = root.querySelector<HTMLButtonElement>("[data-office-action]");
+  const annotation = root.querySelector<HTMLElement>("[data-office-annotation]");
+  const meter = root.querySelector<HTMLElement>("[data-office-progress]");
+  const live = root.querySelector<HTMLElement>("[data-office-live]");
+  const routeData = root.querySelector<HTMLElement>("[data-yt-world-routes]");
+  const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let reducedMotion = motion.matches;
+  let contextLost = false;
+  let disposed = false;
   let frameId = 0;
   let navigationTimer = 0;
-  let disposed = false;
-  const routes = document.querySelector<HTMLElement>("[data-yt-world-routes]");
-  const context = document.querySelector<HTMLElement>("[data-yt-world-context]");
-  let hasFocus = false;
-  let menuModule: ModuleId | null = null;
-  const menuResponses = new Map<ModuleId, number>();
-  const shell = document.querySelector<HTMLElement>("[data-yt-shell]");
-
-  const routeMap: Record<ModuleId, string> = {
-    personnel: routes?.dataset.personnel || "/personnel",
-    logs: routes?.dataset.logs || "/archive",
-    creations: routes?.dataset.creations || "/creations",
-    collections: routes?.dataset.collections || "/collections",
-    sites: routes?.dataset.sites || "/sites",
-  };
-
-  const labels: Record<ModuleId, HTMLElement | null> = {
-    personnel: document.querySelector('[data-yt-world-label="personnel"]'),
-    logs: document.querySelector('[data-yt-world-label="logs"]'),
-    creations: document.querySelector('[data-yt-world-label="creations"]'),
-    collections: document.querySelector('[data-yt-world-label="collections"]'),
-    sites: document.querySelector('[data-yt-world-label="sites"]'),
-  };
-
+  let width = 1, height = 1;
+  let compact = false;
+  let focused: ModuleId | null = null;
+  let directory: ModuleId | null = null;
+  let committing: ModuleId | null = null;
+  let gesture: Gesture | null = null;
+  const stage = Object.fromEntries(moduleOrder.map((id) => [id, "idle"])) as Record<ModuleId, Stage>;
+  const progress = Object.fromEntries(moduleOrder.map((id) => [id, 0])) as Record<ModuleId, number>;
+  const target = { ...progress };
+  let badgeHeld = false;
+  const pointer = new THREE.Vector2();
+  const parallax = new THREE.Vector2();
+  const ray = new THREE.Raycaster();
+  const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.4);
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xe6e1d8);
-  const fog = new THREE.Fog(0xe6e1d8, 11, 25);
+  scene.background = new THREE.Color(0x989d90);
+  const fog = new THREE.Fog(0x989d90, 25, 60);
   scene.fog = fog;
-
-  const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 50);
-  camera.position.set(0.05, 2.96, 10.8);
-  const baseCamera = camera.position.clone();
-  const baseTarget = new THREE.Vector3(0, 1.3, -0.38);
-
-  const fallback = root.querySelector<HTMLElement>("[data-yt-world-fallback]");
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 80);
+  const cameraTarget = new THREE.Vector3(0, 1.15, 0.1);
+  const cameraBase = new THREE.Vector3(3.4, 9.4, 10.6);
   let renderer: THREE.WebGLRenderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas: worldCanvas, antialias: true, powerPreference: "default" });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "default" });
   } catch {
     root.dataset.ytWorldState = "unavailable";
-    if (fallback) fallback.hidden = false;
     delete root.dataset.ytWorldInitialized;
+    if (fallback) fallback.hidden = false;
     return;
   }
-  const onContextLost = (event: Event) => {
-    event.preventDefault();
-    root.dataset.ytWorldState = "unavailable";
-    if (fallback) fallback.hidden = false;
-  };
-  const onContextRestored = () => {
-    window.__ytHomeWorldCleanup?.();
-    initHomeWorld();
-  };
-  canvas.addEventListener("webglcontextlost", onContextLost, { signal: listeners.signal });
-  canvas.addEventListener("webglcontextrestored", onContextRestored, { signal: listeners.signal });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.35));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1;
+  renderer.toneMappingExposure = 1.03;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-  const clock = new THREE.Clock();
-  let elapsed = 0;
-  let current: ModuleId = "logs";
-  let focusSource: "pointer" | "keyboard" = "keyboard";
-  let hovered: THREE.Object3D | null = null;
-  let activating = false;
-  let cameraGoal: THREE.Vector3 | null = null;
-  let lookGoal: THREE.Vector3 | null = null;
-  const pointer = new THREE.Vector2();
-  const pointerEase = new THREE.Vector2();
-  const raycaster = new THREE.Raycaster();
-
-  const interactive: THREE.Object3D[] = [];
-  const objects = {} as Record<ModuleId, WorldObject>;
-
-  function noiseTexture(size = 192) {
-    const surface = document.createElement("canvas");
-    surface.width = surface.height = size;
-    const ctx = surface.getContext("2d")!;
-    const image = ctx.createImageData(size, size);
-    for (let i = 0; i < image.data.length; i += 4) {
-      const value = 207 + Math.floor((Math.random() - 0.5) * 24);
-      image.data[i] = value;
-      image.data[i + 1] = value - 3;
-      image.data[i + 2] = value - 8;
-      image.data[i + 3] = 255;
+  const office = buildOffice(scene);
+  const hitMeshes = [...moduleOrder.map((id) => office.items[id].hit), office.readerHit];
+  const readerDock = () => office.reader.position.clone().add(new THREE.Vector3(0, 0.16, 0));
+  const paused = () => contextLost || document.hidden || shell?.classList.contains("is-menu-open") || shell?.classList.contains("is-settings-open");
+  const copy = () => getMessages(document.documentElement.lang === "en-US" ? "en-US" : "zh-CN");
+  function setCopy(element: HTMLElement | null, key: CopyKey) {
+    if (!element) return;
+    element.dataset.ytCopy = key;
+    element.textContent = copy()[key];
+  }
+  const names: Record<ModuleId, CopyKey> = { personnel: "officeCard", logs: "officeBook", collections: "officeCatalogue", creations: "officeJig", sites: "officePhone" };
+  const hints: Record<ModuleId, CopyKey> = { personnel: "officeCardHint", logs: "officeBookHint", collections: "officeCatalogueHint", creations: "officeJigHint", sites: "officePhoneHint" };
+  const actions: Record<ModuleId, CopyKey> = { personnel: "officePickCard", logs: "officeOpenBook", collections: "officePullDrawer", creations: "officeTurnWheel", sites: "officeLiftPhone" };
+  function updateContext(override?: CopyKey) {
+    const id = focused;
+    setCopy(title, id ? names[id] : "officeTitle");
+    let hintKey: CopyKey = id ? hints[id] : "officeWelcome";
+    let actionKey: CopyKey = id ? actions[id] : "officePickCard";
+    if (id === "personnel" && badgeHeld) { hintKey = "officeCardHeld"; actionKey = "officeInsertCard"; }
+    if ((id === "logs" || id === "collections") && stage[id] === "opened") { hintKey = "officeReadHint"; actionKey = "officeReadRecord"; }
+    if (committing) hintKey = committing === "personnel" ? "officeAuthenticated" : "officeOpening";
+    setCopy(hint, override || hintKey);
+    setCopy(action, actionKey);
+    if (action) action.disabled = !!committing;
+    if (annotation) {
+      setCopy(annotation, id ? names[id] : "officeTitle");
+      annotation.hidden = !id;
     }
-    ctx.putImageData(image, 0, 0);
-    ctx.globalAlpha = 0.18;
-    for (let i = 0; i < 420; i++) {
-      ctx.fillStyle = Math.random() > 0.5 ? "#77736c" : "#f3efe7";
-      ctx.beginPath();
-      ctx.arc(Math.random() * size, Math.random() * size, Math.random() * 1.2 + 0.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    const texture = new THREE.CanvasTexture(surface);
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(3.4, 3.4);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    return texture;
+    root!.dataset.officeSelected = id || "none";
+    root!.dataset.officeStage = id ? stage[id] : "idle";
   }
-
-  const noise = noiseTexture();
-  const concrete = new THREE.MeshStandardMaterial({
-    color: 0xd8d2c7,
-    roughness: 0.84,
-    metalness: 0.02,
-    map: noise,
-    bumpMap: noise,
-    bumpScale: 0.017,
-  });
-  const concreteLight = concrete.clone();
-  concreteLight.color.setHex(0xe9e5dc);
-  concreteLight.roughness = 0.78;
-  const concreteDark = concrete.clone();
-  concreteDark.color.setHex(0xb7b0a4);
-  concreteDark.roughness = 0.88;
-  const metal = new THREE.MeshStandardMaterial({ color: 0x777167, roughness: 0.34, metalness: 0.72 });
-  const metalLight = new THREE.MeshStandardMaterial({ color: 0xb7afa3, roughness: 0.4, metalness: 0.56 });
-  const glass = new THREE.MeshPhysicalMaterial({ color: 0x4b4b47, roughness: 0.18, transmission: 0.08, transparent: true, opacity: 0.74 });
-  const red = new THREE.MeshStandardMaterial({ color: 0x9f2027, emissive: 0x4e090f, emissiveIntensity: 0.45, roughness: 0.45 });
-
-  function box(w: number, h: number, d: number, material: THREE.Material) {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    return mesh;
+  function focus(id: ModuleId | null) {
+    if (focused === id) return;
+    focused = id;
+    updateContext();
   }
-
-  function hitbox(module: ModuleId, w: number, h: number, d: number) {
-    const material = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
-    mesh.userData.module = module;
-    interactive.push(mesh);
-    return mesh;
+  function pointOnDesk(event: PointerEvent) {
+    const rect = canvas!.getBoundingClientRect();
+    pointer.set((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1);
+    ray.setFromCamera(pointer, camera);
+    return ray.ray.intersectPlane(dragPlane, new THREE.Vector3()) || new THREE.Vector3();
   }
-
-  function contactShadow(group: THREE.Group, width: number, depth: number, opacity = 0.18) {
-    const surface = document.createElement("canvas");
-    surface.width = surface.height = 192;
-    const ctx = surface.getContext("2d")!;
-    const gradient = ctx.createRadialGradient(96, 96, 7, 96, 96, 90);
-    gradient.addColorStop(0, `rgba(28,26,23,${opacity})`);
-    gradient.addColorStop(0.48, `rgba(28,26,23,${opacity * 0.42})`);
-    gradient.addColorStop(1, "rgba(28,26,23,0)");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 192, 192);
-    const material = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(surface), transparent: true, depthWrite: false });
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), material);
-    plane.rotation.x = -Math.PI / 2;
-    plane.position.y = 0.014;
-    group.add(plane);
+  function pick(event: PointerEvent): ModuleId | "reader" | null {
+    pointOnDesk(event);
+    scene.updateMatrixWorld(true);
+    return (ray.intersectObjects(hitMeshes, false)[0]?.object.userData.officeTarget as ModuleId | "reader") || null;
   }
-
-  // A single load-bearing record vault, with a paper carrier inside its seam.
-  function buildLogs() {
-    const group = new THREE.Group() as WorldObject;
-    group.position.set(0, 0, -0.55);
-    const footing = box(2.65, 0.16, 1.65, concreteDark);
-    footing.position.y = 0.08;
-    const spine = box(1.8, 3.45, 0.36, concreteDark);
-    spine.position.set(0, 1.88, -0.43);
-    group.add(footing, spine);
-    const banks: THREE.Group[] = [];
-    for (const side of [-1, 1]) {
-      const bank = new THREE.Group();
-      bank.position.set(side * 0.64, 0, 0);
-      const shell = box(1.05, 3.32, 0.96, concreteLight);
-      shell.position.y = 1.92;
-      bank.add(shell);
-      for (const y of [0.4, 3.38]) {
-        const band = box(1.08, 0.055, 0.99, metalLight);
-        band.position.y = y;
-        bank.add(band);
-      }
-      banks.push(bank);
-      group.add(bank);
-    }
-    const recess = box(0.26, 2.86, 0.09, metal);
-    recess.position.set(0, 1.86, 0.16);
-    group.add(recess);
-    const carrier = new THREE.Group();
-    carrier.position.set(0, 1.65, 0.28);
-    const record = box(0.15, 1.58, 0.7, concreteLight);
-    const binding = box(0.17, 1.6, 0.055, metalLight);
-    binding.position.z = 0.36;
-    carrier.add(record, binding);
-    // Parallel edges read as sheets, never a screen.
-    for (let i = 0; i < 5; i++) {
-      const page = box(0.012, 1.5, 0.66, concrete);
-      page.position.set(-0.057 + i * 0.028, 0, 0.028);
-      carrier.add(page);
-    }
-    const tab = box(0.14, 0.14, 0.04, red);
-    tab.position.set(0, 0.55, 0.4);
-    carrier.add(tab);
-    group.add(carrier);
-    const locks: THREE.Mesh[] = [];
-    for (const y of [0.92, 2.48]) {
-      const lock = box(0.44, 0.075, 0.16, metal);
-      lock.position.set(0, y, 0.56);
-      group.add(lock);
-      locks.push(lock);
-    }
-    const hit = hitbox("logs", 2.7, 3.7, 1.6);
-    hit.position.y = 1.85;
-    group.add(hit);
-    contactShadow(group, 3.5, 2.4, 0.22);
-    let response = 0, target = 0, extraction = 0, extractionTarget = 0;
-    group.userData.anchor = new THREE.Vector3(0, 3.62, 0.5);
-    group.userData.focus = (active) => { target = active ? 1 : 0; };
-    group.userData.activate = () => { extractionTarget = 1; };
-    group.userData.update = (dt) => {
-      const damping = 1 - Math.exp(-11 * dt);
-      response += (target - response) * damping;
-      extraction += (extractionTarget - extraction) * damping;
-      locks.forEach((lock, i) => {
-        lock.position.x = (i ? 1 : -1) * response * 0.19;
-        lock.rotation.z = (i ? 1 : -1) * response * 0.12;
-      });
-      banks[0].position.x = -0.64 - extraction * 0.36;
-      banks[1].position.x = 0.64 + extraction * 0.36;
-      carrier.position.z = 0.28 + response * 0.07 + extraction * 1.05;
-      carrier.rotation.y = extraction * -0.2;
-    };
-    return group;
+  function releaseCapture() {
+    const captured = gesture;
+    gesture = null;
+    if (captured && canvas!.hasPointerCapture?.(captured.pointer)) canvas!.releasePointerCapture(captured.pointer);
+    root!.classList.remove("is-manipulating");
   }
-
-  function buildPersonnel() {
-    const group = new THREE.Group() as WorldObject;
-    group.position.set(-2.55, 0.65, 0.12);
-    group.scale.setScalar(0.84);
-    group.rotation.y = 0.22;
-
-    const leg = box(0.2, 0.76, 0.55, metal);
-    leg.position.set(0, -0.38, -0.08);
-    const foot = box(1.6, 0.1, 0.85, concreteDark);
-    foot.position.y = -0.73;
-    group.add(leg, foot);
-    const wallPlate = box(1.72, 2.15, 0.12, concreteDark);
-    wallPlate.position.set(0, 1.1, -0.18);
-    group.add(wallPlate);
-    const railTop = box(1.9, 0.09, 0.26, metal);
-    railTop.position.set(0, 2.14, -0.06);
-    const railBottom = railTop.clone();
-    railBottom.position.y = 0.07;
-    group.add(railTop, railBottom);
-
-    const cradleLeft = box(0.07, 1.86, 0.24, metal);
-    cradleLeft.position.set(-0.75, 1.1, -0.04);
-    const cradleRight = cradleLeft.clone();
-    cradleRight.position.x = 0.75;
-    group.add(cradleLeft, cradleRight);
-
-    for (let i = 0; i < 4; i++) {
-      const archivedSheet = box(1.16 - i * 0.035, 1.56, 0.025, i % 2 ? concrete : concreteLight);
-      archivedSheet.position.set((i - 1.5) * 0.025, 1.12 + i * 0.015, 0.02 + i * 0.045);
-      archivedSheet.rotation.z = (i - 1.5) * 0.009;
-      group.add(archivedSheet);
-    }
-
-    const fileCarrier = new THREE.Group();
-    fileCarrier.position.set(-0.58, 1.13, 0.2);
-    group.add(fileCarrier);
-    const dossier = box(1.14, 1.62, 0.055, concreteLight);
-    dossier.position.x = 0.58;
-    fileCarrier.add(dossier);
-    const tab = box(0.25, 0.09, 0.07, metalLight);
-    tab.position.set(0.94, 0.84, 0.025);
-    fileCarrier.add(tab);
-    const identityWindow = box(0.64, 0.32, 0.026, glass);
-    identityWindow.position.set(0.58, 0.18, 0.045);
-    fileCarrier.add(identityWindow);
-    for (let i = 0; i < 5; i++) {
-      const rule = box(0.72 - i * 0.055, 0.012, 0.018, metal);
-      rule.position.set(0.55, -0.15 - i * 0.16, 0.046);
-      fileCarrier.add(rule);
-    }
-    const marker = box(0.055, 0.055, 0.035, red);
-    marker.position.set(0.17, 0.58, 0.05);
-    fileCarrier.add(marker);
-
-    const coverHinge = new THREE.Group();
-    coverHinge.position.set(0, -0.01, 0.065);
-    fileCarrier.add(coverHinge);
-    const cover = box(1.08, 1.54, 0.035, concrete);
-    cover.position.x = 0.54;
-    coverHinge.add(cover);
-    const portraitWindow = box(0.5, 0.54, 0.022, glass);
-    portraitWindow.position.set(0.54, 0.18, 0.035);
-    coverHinge.add(portraitWindow);
-    const portraitHead = new THREE.Mesh(new THREE.SphereGeometry(0.1, 14, 10), metalLight);
-    portraitHead.scale.z = 0.28;
-    portraitHead.position.set(0.54, 0.28, 0.065);
-    portraitHead.castShadow = true;
-    const portraitBody = box(0.28, 0.16, 0.035, metalLight);
-    portraitBody.position.set(0.54, 0.04, 0.06);
-    coverHinge.add(portraitHead, portraitBody);
-    for (let i = 0; i < 3; i++) {
-      const coverRule = box(0.48 - i * 0.07, 0.012, 0.018, metal);
-      coverRule.position.set(0.53, -0.3 - i * 0.15, 0.045);
-      coverHinge.add(coverRule);
-    }
-
-    const hingeTop = box(0.1, 0.24, 0.12, metalLight);
-    hingeTop.position.set(-0.63, 1.72, 0.18);
-    const hingeBottom = hingeTop.clone();
-    hingeBottom.position.y = 0.5;
-    group.add(hingeTop, hingeBottom);
-
-    const hit = hitbox("personnel", 1.95, 2.35, 0.9);
-    hit.position.set(0, 1.1, 0.08);
-    group.add(hit);
-
-    let active = 0;
-    let target = 0;
-    group.userData.anchor = new THREE.Vector3(0, 2.3, 0.48);
-    group.userData.focus = (state: boolean) => { target = state ? 0.38 : 0; };
-    group.userData.activate = () => { target = 1; };
-    group.userData.update = (dt: number) => {
-      active += (target - active) * (1 - Math.pow(0.00004, dt));
-      fileCarrier.position.z = 0.2 + active * 0.35;
-      fileCarrier.rotation.y = -active * 0.16;
-      coverHinge.rotation.y = -active * 0.95;
-      fileCarrier.position.y = 1.13 + Math.max(0, active - 0.38) * 0.32;
-    };
-    return group;
-  }
-
-  function buildCollections() {
-    const group = new THREE.Group() as WorldObject;
-    group.position.set(-4.9, 0.14, -2.72);
-    group.scale.setScalar(0.85);
-    group.rotation.y = -0.035;
-
-    const shell = box(1.68, 1.3, 0.42, concreteDark);
-    shell.position.set(0, 0.68, -0.12);
-    group.add(shell);
-    const top = box(1.82, 0.09, 0.53, metal);
-    top.position.set(0, 1.36, -0.06);
-    group.add(top);
-
-    const drawers: THREE.Group[] = [];
-    for (let i = 0; i < 4; i++) {
-      const drawer = new THREE.Group();
-      drawer.position.set(0, 1.12 - i * 0.29, 0.1);
-      const tray = box(1.35, 0.035, 0.5, metalLight);
-      tray.position.set(0, -0.08, 0.02);
-      for (const x of [-0.66, 0.66]) {
-        const side = box(0.035, 0.19, 0.5, metalLight);
-        side.position.set(x, 0, 0.02);
-        drawer.add(side);
-      }
-      const face = box(1.45, 0.24, 0.065, concreteLight);
-      face.position.z = 0.3;
-      const handle = box(0.28, 0.025, 0.028, metal);
-      handle.position.set(0.38, 0, 0.35);
-      const labelSlot = box(0.38, 0.09, 0.02, metal);
-      labelSlot.position.set(-0.38, 0, 0.35);
-      drawer.add(tray, face, handle, labelSlot);
-      if (i === 2) {
-        const storedFile = box(0.86, 0.035, 0.31, concreteLight);
-        storedFile.position.set(0.03, 0.14, 0.04);
-        storedFile.rotation.y = -0.05;
-        const storedMarker = box(0.08, 0.04, 0.06, red.clone());
-        storedMarker.position.set(-0.3, 0.18, 0.13);
-        drawer.add(storedFile, storedMarker);
-      }
-      group.add(drawer);
-      drawers.push(drawer);
-    }
-
-    const point = box(0.05, 0.05, 0.035, red);
-    point.position.set(0.63, 0.16, 0.24);
-    group.add(point);
-
-    const hit = hitbox("collections", 1.85, 1.55, 0.9);
-    hit.position.set(0, 0.75, 0.08);
-    group.add(hit);
-
-    let open = 0;
-    let target = 0;
-    group.userData.anchor = new THREE.Vector3(0, 0.56, 0.58);
-    group.userData.focus = (state: boolean) => { target = state ? 0.42 : 0; };
-    group.userData.activate = () => { target = 1; };
-    group.userData.update = (dt: number) => {
-      open += (target - open) * (1 - Math.pow(0.00004, dt));
-      drawers[2].position.z = 0.1 + open * 0.68;
-    };
-    return group;
-  }
-
-  function buildCreations() {
-    const group = new THREE.Group() as WorldObject;
-    group.position.set(3.1, 0.8, 0.02);
-    group.scale.setScalar(0.85);
-    group.rotation.y = -0.09;
-
-    for (const x of [-0.72, 0.72]) {
-      const leg = box(0.11, 0.9, 0.65, metal);
-      leg.position.set(x, -0.4, 0);
-      group.add(leg);
-    }
-    const bench = box(2.1, 0.14, 1.08, concreteDark);
-    bench.position.set(0, 0.04, 0.12);
-    group.add(bench);
-    const wallBracket = box(1.85, 0.2, 0.12, concreteDark);
-    wallBracket.position.set(0, 1.04, -0.24);
-    group.add(wallBracket);
-    const frameLeft = box(0.09, 1.72, 0.22, metalLight);
-    frameLeft.position.set(-0.82, 1.03, -0.08);
-    const frameRight = frameLeft.clone();
-    frameRight.position.x = 0.82;
-    const frameTop = box(1.72, 0.09, 0.22, metalLight);
-    frameTop.position.set(0, 1.88, -0.08);
-    group.add(frameLeft, frameRight, frameTop);
-
-    const artifactMaterial = new THREE.MeshStandardMaterial({
-      color: 0xc8c0b4,
-      roughness: 0.68,
-      metalness: 0.14,
-      flatShading: true,
-    });
-    const cradle = new THREE.Group();
-    cradle.position.set(0, 0.88, 0.04);
-    group.add(cradle);
-    const tray = box(1.18, 0.09, 0.62, metalLight);
-    tray.position.y = -0.42;
-    cradle.add(tray);
-    const artifact = new THREE.Group();
-    artifact.position.set(0, -0.02, 0);
-    const artifactBody = box(0.62, 0.54, 0.42, artifactMaterial);
-    artifactBody.position.y = -0.1;
-    for (const x of [-0.24, 0.24]) {
-      const bracket = box(0.07, 0.7, 0.48, metalLight);
-      bracket.position.set(x, -0.05, 0);
-      artifact.add(bracket);
-    }
-    const lid = box(0.48, 0.035, 0.36, metal);
-    lid.position.set(0, 0.32, -0.02);
-    artifact.add(lid);
-    artifactBody.castShadow = true;
-    artifact.add(artifactBody);
-    cradle.add(artifact);
-
-    const leftArm = new THREE.Group();
-    leftArm.position.set(-0.58, 0, 0.04);
-    const leftBeam = box(0.52, 0.08, 0.14, metal);
-    leftBeam.position.x = -0.1;
-    const leftClamp = box(0.08, 0.5, 0.18, concreteLight);
-    leftClamp.position.set(0.13, 0, 0);
-    leftArm.add(leftBeam, leftClamp);
-    const rightArm = new THREE.Group();
-    rightArm.position.set(0.58, 0, 0.04);
-    const rightBeam = box(0.52, 0.08, 0.14, metal);
-    rightBeam.position.x = 0.1;
-    const rightClamp = box(0.08, 0.5, 0.18, concreteLight);
-    rightClamp.position.set(-0.13, 0, 0);
-    rightArm.add(rightBeam, rightClamp);
-    cradle.add(leftArm, rightArm);
-
-    const gaugeCarriage = new THREE.Group();
-    gaugeCarriage.position.set(0, 1.8, 0.03);
-    const gaugeStem = box(0.055, 0.78, 0.08, metal);
-    gaugeStem.position.y = -0.38;
-    const gaugeHead = box(0.34, 0.12, 0.17, glass);
-    gaugeHead.position.y = -0.78;
-    gaugeCarriage.add(gaugeStem, gaugeHead);
-    group.add(gaugeCarriage);
-
-    for (const x of [-0.52, 0.52]) {
-      const suspension = box(0.045, 0.72, 0.045, metal);
-      suspension.position.set(x, 1.5, -0.02);
-      group.add(suspension);
-    }
-
-    const point = box(0.055, 0.055, 0.035, red);
-    point.position.set(0.68, 1.72, 0.04);
-    group.add(point);
-
-    const hit = hitbox("creations", 1.95, 2.1, 1.05);
-    hit.position.set(0, 1.02, 0.06);
-    group.add(hit);
-
-    let activation = 0;
-    let target = 0;
-    group.userData.anchor = new THREE.Vector3(0, 2.08, 0.48);
-    group.userData.focus = (state: boolean) => { target = state ? 0.38 : 0; };
-    group.userData.activate = () => { target = 1; };
-    group.userData.update = (dt: number) => {
-      activation += (target - activation) * (1 - Math.pow(0.00004, dt));
-      const calibration = Math.min(activation / 0.38, 1);
-      leftArm.position.x = -0.58 + calibration * 0.13;
-      rightArm.position.x = 0.58 - calibration * 0.13;
-      gaugeCarriage.position.y = 1.8 - calibration * 0.22;
-      cradle.position.z = 0.04 + Math.max(0, activation - 0.38) * 0.82;
-      cradle.rotation.x = Math.max(0, activation - 0.38) * -0.09;
-    };
-    return group;
-  }
-
-  function buildSites() {
-    const group = new THREE.Group() as WorldObject;
-    group.position.set(4.55, 2.12, -2.89);
-    group.scale.setScalar(0.72);
-    group.rotation.y = -0.025;
-
-    const backplate = box(1.7, 1.58, 0.09, concreteDark);
-    backplate.position.set(0, 0.78, -0.12);
-    const inset = box(1.46, 1.34, 0.08, concrete);
-    inset.position.set(0, 0.78, -0.04);
-    group.add(backplate, inset);
-
-    const siteSignal = red.clone();
-    const point = box(0.055, 0.055, 0.035, siteSignal);
-    point.position.set(0.62, 1.28, 0.075);
-    group.add(point);
-
-    const socketGeometry = new THREE.CylinderGeometry(0.105, 0.105, 0.1, 16);
-    for (let row = 0; row < 2; row++) {
-      for (let col = 0; col < 3; col++) {
-        const socket = new THREE.Mesh(socketGeometry, metal);
-        socket.rotation.x = Math.PI / 2;
-        socket.position.set(-0.48 + col * 0.48, 0.98 - row * 0.48, 0.08);
-        socket.castShadow = true;
-        group.add(socket);
-        const socketCore = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.115, 12), glass);
-        socketCore.rotation.x = Math.PI / 2;
-        socketCore.position.copy(socket.position);
-        socketCore.position.z += 0.015;
-        group.add(socketCore);
-      }
-    }
-
-    const shutter = box(0.28, 0.3, 0.055, concreteLight);
-    shutter.position.set(0, 0.5, 0.15);
-    group.add(shutter);
-    const connector = new THREE.Group();
-    connector.position.set(0, 0.5, 0.18);
-    const connectorBody = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.28, 12), metalLight);
-    connectorBody.rotation.x = Math.PI / 2;
-    const connectorPin = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 10), red);
-    connectorPin.rotation.x = Math.PI / 2;
-    connectorPin.position.z = 0.19;
-    connector.add(connectorBody, connectorPin);
-    group.add(connector);
-
-    const signalArm = box(0.06, 0.06, 0.52, metal);
-    signalArm.position.set(0.62, 0.25, 0.18);
-    signalArm.scale.z = 0.08;
-    group.add(signalArm);
-
-    const hit = hitbox("sites", 1.85, 1.72, 0.65);
-    hit.position.set(0, 0.78, 0.04);
-    group.add(hit);
-
-    let pulse = 0;
-    let target = 0;
-    group.userData.anchor = new THREE.Vector3(0, 1.75, 0.28);
-    group.userData.focus = (state: boolean) => { target = state ? 0.44 : 0; };
-    group.userData.activate = () => { target = 1; };
-    group.userData.update = (dt: number) => {
-      pulse += (target - pulse) * (1 - Math.pow(0.00004, dt));
-      siteSignal.emissiveIntensity = 0.35 + pulse * 0.82;
-      shutter.position.x = pulse * 0.3;
-      connector.position.z = 0.18 + pulse * 0.38;
-      signalArm.scale.z = 0.08 + Math.max(0, pulse - 0.44) * 1.35;
-      signalArm.position.z = 0.18 + Math.max(0, pulse - 0.44) * 0.28;
-    };
-    return group;
-  }
-
-  function buildEnvironment() {
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8f887d, 1.05));
-    const key = new THREE.DirectionalLight(0xfff8e8, 2.55);
-    key.position.set(-3, 8, 5);
-    key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024);
-    key.shadow.camera.left = -8;
-    key.shadow.camera.right = 8;
-    key.shadow.camera.top = 7;
-    key.shadow.camera.bottom = -2;
-    key.shadow.bias = -0.00025;
-    scene.add(key);
-    const rim = new THREE.DirectionalLight(0xd5dce0, 0.32);
-    rim.position.set(5, 4, -3);
-    scene.add(rim);
-
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(28, 18), concrete.clone());
-    (floor.material as THREE.MeshStandardMaterial).color.setHex(0xd9d3c8);
-    (floor.material as THREE.MeshStandardMaterial).map!.repeat.set(7, 5);
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    const wall = new THREE.Mesh(new THREE.PlaneGeometry(18, 9), concreteLight.clone());
-    (wall.material as THREE.MeshStandardMaterial).color.setHex(0xe7e2d9);
-    wall.position.set(0, 4.5, -3.08);
-    wall.receiveShadow = true;
-    scene.add(wall);
-
-    const wallBay = box(3.7, 5.55, 0.08, concreteLight.clone());
-    (wallBay.material as THREE.MeshStandardMaterial).color.setHex(0xece8df);
-    wallBay.position.set(0, 2.78, -2.97);
-    wallBay.castShadow = false;
-    scene.add(wallBay);
-    // A continuous service datum ties both wings into the building.
-    for (const side of [-1, 1]) {
-      const bayWidth = side < 0 ? 4.3 : 3.55;
-      const bayCenter = side < 0 ? -4.05 : 3.68;
-      const ledge = box(bayWidth, 0.14, 0.74, concreteDark);
-      ledge.position.set(bayCenter, 1.36, -2.71);
-      const skirting = box(bayWidth, 0.18, 0.44, concreteDark);
-      skirting.position.set(bayCenter, 0.12, -2.83);
-      const rail = box(bayWidth, 0.045, 0.09, metalLight);
-      rail.position.set(bayCenter, 1.55, -2.94);
-      scene.add(ledge, skirting, rail);
-      for (const offset of [-bayWidth / 2, bayWidth / 2]) {
-        const pier = box(0.16, 4.65, 0.42, concrete);
-        pier.position.set(bayCenter + offset, 2.325, -2.94);
-        scene.add(pier);
-      }
-    }
-    // A wall conduit carries the external port beyond the room boundary.
-    const conduit = box(3.1, 0.07, 0.09, metal);
-    conduit.position.set(5.9, 2.46, -2.88);
-    scene.add(conduit);
-    const leftStorage = box(1.03, 1.07, 0.45, concreteDark);
-    leftStorage.position.set(-3.45, 0.69, -2.77);
-    scene.add(leftStorage);
-    for (let i = 0; i < 3; i++) {
-      const slot = box(0.82, 0.018, 0.05, metal);
-      slot.position.set(-3.45, 0.4 + i * 0.3, -2.52);
-      scene.add(slot);
-    }
-
-  }
-
-  buildEnvironment();
-  objects.logs = buildLogs();
-  objects.personnel = buildPersonnel();
-  objects.collections = buildCollections();
-  objects.creations = buildCreations();
-  objects.sites = buildSites();
-  Object.values(objects).forEach((object) => {
-    const hit = object.children.find((child) => child.userData.module);
-    object.userData.access = hit ? hit.position.clone().add(new THREE.Vector3(0, 0, 0.45)) : new THREE.Vector3(0, 1, 0);
-    const directoryMaterials = new Map<THREE.MeshStandardMaterial, THREE.MeshStandardMaterial>();
-    object.traverse((child) => {
-      if (!(child instanceof THREE.Mesh) || !(child.material instanceof THREE.MeshStandardMaterial)) return;
-      const original = child.material;
-      if (original.color.g < original.color.r * 0.5) return;
-      if (!directoryMaterials.has(original)) {
-        const material = original.clone();
-        material.emissive.setHex(0xb9ab86);
-        material.emissiveIntensity = 0;
-        directoryMaterials.set(original, material);
-      }
-      child.material = directoryMaterials.get(original)!;
-      child.userData.directoryMaterial = true;
-    });
-    scene.add(object);
-  });
-
-  function copyFor(module: ModuleId) {
-    return labels[module]?.querySelector("strong")?.textContent?.trim() || module.toUpperCase();
-  }
-
-  function setContext(module: ModuleId) {
-    const title = context?.querySelector<HTMLElement>("strong");
-    if (!title) return;
-    title.dataset.ytCopy = module;
-    title.textContent = copyFor(module);
-  }
-
-  function setFocus(module: ModuleId, source = focusSource) {
-    hasFocus = true;
-    current = module;
-    focusSource = source;
-    Object.entries(objects).forEach(([key, object]) => object.userData.focus?.(key === module));
-    setContext(module);
-    labels[module]?.classList.add("is-active");
-    Object.entries(labels).forEach(([key, label]) => label?.classList.toggle("is-active", key === module));
-  }
-
-  function worldAnchor(module: ModuleId, access = false) {
-    const object = objects[module];
-    object.updateWorldMatrix(true, false);
-    const local = (access ? object.userData.access : object.userData.anchor) || new THREE.Vector3();
-    return local.clone().applyMatrix4(object.matrixWorld);
-  }
-
-  function project(module: ModuleId) {
-    const point = worldAnchor(module).project(camera);
-    return {
-      x: (point.x * 0.5 + 0.5) * worldCanvas.clientWidth,
-      y: (-point.y * 0.5 + 0.5) * worldCanvas.clientHeight,
-    };
-  }
-
-  const overlayPositions = new Map<HTMLElement, { x: number; y: number }>();
-  function placeOverlay(element: HTMLElement, x: number, y: number) {
-    const previous = overlayPositions.get(element);
-    if (previous && Math.abs(previous.x - x) < 0.35 && Math.abs(previous.y - y) < 0.35) return;
-    element.style.left = `${x.toFixed(1)}px`;
-    element.style.top = `${y.toFixed(1)}px`;
-    overlayPositions.set(element, { x, y });
-  }
-
-  function updateOverlay() {
-    const width = worldCanvas.clientWidth;
-    const height = worldCanvas.clientHeight;
-    const offsets: Record<ModuleId, [number, number]> = {
-      personnel: [-72, -35], collections: [-75, 50], logs: [-72, -35],
-      creations: [-65, -30], sites: [-65, -30],
-    };
-    (Object.keys(labels) as ModuleId[]).forEach((module) => {
-      const label = labels[module];
-      if (!label) return;
-      const p = project(module);
-      const [x, y] = offsets[module];
-      placeOverlay(
-        label,
-        THREE.MathUtils.clamp(p.x + x, 22, Math.max(22, width - 185)),
-        THREE.MathUtils.clamp(p.y + y, 28, Math.max(28, height - 68)),
-      );
-    });
-  }
-
-  function resize() {
-    const width = worldCanvas.clientWidth || window.innerWidth;
-    const height = worldCanvas.clientHeight || window.innerHeight;
-    camera.aspect = width / height;
-    const narrowFraming = Math.max(0, 1.5 - camera.aspect);
-    const fitDistance = 6.1 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) - 1.8;
-    baseCamera.set(0.05, 2.96 + narrowFraming * 0.25, Math.max(10.8, fitDistance));
-    // Fog is camera-relative: portrait framing must never put the whole room
-    // beyond fog.far (the cause of the blank mobile viewport).
-    const roomDistance = baseCamera.distanceTo(baseTarget);
-    fog.near = Math.max(11, roomDistance - 2);
-    fog.far = roomDistance + 24;
-    camera.far = Math.max(50, roomDistance + 36);
-    camera.position.copy(baseCamera);
-    camera.lookAt(baseTarget);
-    camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.35));
-    renderer.setSize(width, height, false);
-    overlayPositions.clear();
-  }
-
-  function pointerToNdc(event: PointerEvent) {
-    const rect = worldCanvas.getBoundingClientRect();
-    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  }
-
-  function navigate(module: ModuleId) {
-    if (activating) return;
-    activating = true;
-    setFocus(module);
-    objects[module].userData.activate?.();
-    try { localStorage.setItem("yibel-last-module", module); } catch { /* Navigation works without storage. */ }
-
-    const anchor = worldAnchor(module, true);
-    const direction = new THREE.Vector3().subVectors(camera.position, anchor).normalize();
-    cameraGoal = anchor.clone().add(direction.multiplyScalar(5.45));
-    lookGoal = anchor;
-    worldRoot.classList.add("is-activating");
-
-    navigationTimer = window.setTimeout(() => window.location.assign(routeMap[module]), reducedMotion ? 140 : 620);
-  }
-
-  const onPointerMove = (event: PointerEvent) => {
-    if (activating || shell?.classList.contains("is-menu-open") || shell?.classList.contains("is-settings-open")) return;
-    pointerToNdc(event);
-    pointerEase.set(pointer.x, pointer.y);
-    raycaster.setFromCamera(pointer, camera);
-    const next = raycaster.intersectObjects(interactive, false)[0]?.object || null;
-    if (next !== hovered) {
-      hovered = next;
-      const module = next?.userData.module as ModuleId | undefined;
-      if (module) {
-        setFocus(module, "pointer");
-        worldCanvas.style.cursor = "pointer";
-      } else {
-        clearFocus();
-        worldCanvas.style.cursor = "default";
-      }
-    }
-  };
-
-  const onPointerDown = (event: PointerEvent) => {
-    if (activating || shell?.classList.contains("is-menu-open") || shell?.classList.contains("is-settings-open")) return;
-    pointerToNdc(event);
-    raycaster.setFromCamera(pointer, camera);
-    const target = raycaster.intersectObjects(interactive, false)[0]?.object;
-    const module = target?.userData.module as ModuleId | undefined;
-    if (module) navigate(module);
-  };
-
-  function clearFocus() {
-    hasFocus = false;
-    Object.values(objects).forEach((object) => object.userData.focus?.(false));
-    Object.values(labels).forEach((label) => label?.classList.remove("is-active"));
-  }
-  const onPointerLeave = () => {
-    if (!activating && focusSource === "pointer") clearFocus();
-    hovered = null;
-    pointerEase.set(0, 0);
-    worldCanvas.style.cursor = "default";
-  };
-
-  const focusOrder: ModuleId[] = ["personnel", "collections", "logs", "creations", "sites"];
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (!worldRoot.isConnected || activating || shell?.classList.contains("is-menu-open") || shell?.classList.contains("is-settings-open")) return;
-    if (event.target instanceof Element && event.target.closest("button, a, input, textarea, select")) return;
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-      event.preventDefault();
-      const index = Math.max(0, focusOrder.indexOf(current));
-      setFocus(focusOrder[(index + 1) % focusOrder.length], "keyboard");
-    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-      event.preventDefault();
-      const index = Math.max(0, focusOrder.indexOf(current));
-      setFocus(focusOrder[(index - 1 + focusOrder.length) % focusOrder.length], "keyboard");
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      navigate(current);
-    }
-  };
-
-  worldCanvas.addEventListener("pointermove", onPointerMove, { signal: listeners.signal });
-  worldCanvas.addEventListener("pointerdown", onPointerDown, { signal: listeners.signal });
-  worldCanvas.addEventListener("pointerleave", onPointerLeave, { signal: listeners.signal });
-  document.addEventListener("keydown", onKeyDown, { signal: listeners.signal });
-  window.addEventListener("resize", resize, { signal: listeners.signal });
-  motionQuery.addEventListener("change", (event) => { reducedMotion = event.matches; }, { signal: listeners.signal });
-
-  resize();
-  // The shell owns the directory; the scene receives only selection intent.
-  document.addEventListener("yt:directory", ((event: CustomEvent<{ open: boolean; module: ModuleId }>) => {
-    menuModule = event.detail.open && objects[event.detail.module] ? event.detail.module : null;
-  }) as EventListener, { signal: listeners.signal });
-
-  if (shell?.classList.contains("is-menu-open")) {
-    const selected = shell.querySelector<HTMLElement>("[data-yt-menu-link].is-active")?.dataset.ytModule as ModuleId;
-    menuModule = objects[selected] ? selected : "personnel";
-  }
-  const geometries = new Set<THREE.BufferGeometry>();
-  const materials = new Set<THREE.Material>();
-  const textures = new Set<THREE.Texture>();
-
-  function cleanup() {
-    if (disposed) return;
-    disposed = true;
-    window.cancelAnimationFrame(frameId);
+  function reset() {
+    releaseCapture();
     window.clearTimeout(navigationTimer);
-    listeners.abort();
-    scene.traverse((child) => {
-      if (child instanceof THREE.DirectionalLight) child.shadow.dispose();
-      if (!(child instanceof THREE.Mesh)) return;
-      geometries.add(child.geometry);
-      const meshMaterials = Array.isArray(child.material) ? child.material : [child.material];
-      meshMaterials.forEach((material) => {
-        materials.add(material);
-        Object.values(material).forEach((value) => {
-          if (value instanceof THREE.Texture) textures.add(value);
-        });
-      });
-    });
-    geometries.forEach((geometry) => geometry.dispose());
-    textures.forEach((texture) => texture.dispose());
-    materials.forEach((material) => material.dispose());
-    renderer.renderLists.dispose();
-    renderer.dispose();
-    delete worldRoot.dataset.ytWorldInitialized;
-    if (window.__ytHomeWorldCleanup === cleanup) delete window.__ytHomeWorldCleanup;
+    committing = null;
+    badgeHeld = false;
+    for (const id of moduleOrder) { stage[id] = "idle"; target[id] = 0; }
+    office.setAuthenticated(false);
+    root!.classList.remove("is-activating");
+    updateContext();
   }
-
-  window.__ytHomeWorldCleanup = cleanup;
-  document.addEventListener("astro:before-swap", cleanup, { once: true, signal: listeners.signal });
-
-  function frame() {
-    if (disposed) return;
-    if (!worldRoot.isConnected) {
-      cleanup();
+  function commit(id: ModuleId) {
+    if (committing) return;
+    releaseCapture();
+    committing = id;
+    focused = id;
+    stage[id] = "committing";
+    target[id] = id === "logs" ? 1.36 : 1;
+    if (id === "personnel") { badgeHeld = false; office.setAuthenticated(true); }
+    root!.classList.add("is-activating");
+    updateContext();
+    setCopy(live, id === "personnel" ? "officeAuthenticated" : "officeOpening");
+    navigationTimer = window.setTimeout(() => {
+      if (paused()) { reset(); return; }
+      try { localStorage.setItem("yibel-last-module", id); } catch { /* Reading remains available without storage. */ }
+      const href = routeData?.dataset[id];
+      if (href) window.location.assign(href);
+    }, reducedMotion ? 160 : 780);
+  }
+  function operate() {
+    if (paused() || committing) return;
+    const id = focused || "personnel";
+    focus(id);
+    if (id === "personnel") {
+      if (badgeHeld) commit(id);
+      else { badgeHeld = true; stage[id] = "held"; updateContext(); }
+    } else if (id === "logs" || id === "collections") {
+      if (stage[id] === "opened") commit(id);
+      else { stage[id] = "opened"; target[id] = 1; updateContext(); }
+    } else if (id === "creations") {
+      target[id] = clampProgress(target[id] + 0.5);
+      if (target[id] >= 1) commit(id);
+      else updateContext("officeHalfTurn");
+    } else commit(id);
+  }
+  function project(object: THREE.Object3D) {
+    const p = object.getWorldPosition(new THREE.Vector3()).project(camera);
+    return new THREE.Vector2((p.x * 0.5 + 0.5) * width, (-p.y * 0.5 + 0.5) * height);
+  }
+  function onPointerDown(event: PointerEvent) {
+    if (event.button !== 0 || paused() || committing || gesture) return;
+    const picked = pick(event);
+    if (!picked) { if (!badgeHeld) focus(null); return; }
+    event.preventDefault();
+    canvas!.focus({ preventScroll: true });
+    focus(picked === "reader" ? "personnel" : picked);
+    if (picked === "reader") {
+      if (badgeHeld) commit("personnel");
+      else updateContext("officeNeedCard");
       return;
     }
-    const dt = Math.min(clock.getDelta(), 0.04);
-    const paused = shell?.classList.contains("is-menu-open") || shell?.classList.contains("is-settings-open");
-    if (!paused) elapsed += dt;
-
-    if (!paused) {
-      Object.values(objects).forEach((object) => object.userData.update?.(reducedMotion ? 1 : dt, elapsed));
+    const point = pointOnDesk(event);
+    const center = project(office.items[picked].anchor);
+    const rect = canvas!.getBoundingClientRect();
+    const x = event.clientX - rect.left, y = event.clientY - rect.top;
+    gesture = {
+      id: picked, pointer: event.pointerId, x: event.clientX, y: event.clientY, point,
+      dx: 0, dy: 0, dz: 0, base: target[picked], heldMs: 0, moved: false,
+      center, lastAngle: Math.atan2(y - center.y, x - center.x), angle: 0,
+      useAngle: Math.hypot(x - center.x, y - center.y) > 15,
+      cardOffset: office.items.personnel.root.position.clone().sub(point),
+    };
+    if (picked === "personnel") { badgeHeld = true; stage.personnel = "held"; }
+    canvas!.setPointerCapture?.(event.pointerId);
+    root!.classList.add("is-manipulating");
+    updateContext();
+  }
+  function onPointerMove(event: PointerEvent) {
+    if (paused() || committing) return;
+    if (!gesture) {
+      const picked = pick(event);
+      if (picked) focus(picked === "reader" ? "personnel" : picked);
+      canvas!.style.cursor = picked ? (picked === "reader" ? "pointer" : "grab") : "default";
+      if (event.pointerType === "mouse") parallax.copy(pointer);
+      return;
     }
-
-    // While paused, only a small local material response may change.
-    // Mechanical poses, time and camera remain exactly where the menu interrupted them.
-    (Object.keys(objects) as ModuleId[]).forEach((module) => {
-      const old = menuResponses.get(module) || 0;
-      const value = THREE.MathUtils.lerp(old, menuModule === module ? 1 : 0, reducedMotion ? 1 : 1 - Math.exp(-12 * dt));
-      menuResponses.set(module, value);
-      objects[module].traverse((child) => {
-        if (!(child instanceof THREE.Mesh) || !child.userData.directoryMaterial) return;
-        const material = child.material as THREE.MeshStandardMaterial;
-        material.emissiveIntensity = value * 0.095;
-      });
-    });
-    if (!paused) {
-    const focusAnchor = hasFocus ? worldAnchor(current, true) : baseTarget;
-    const parallax = reducedMotion ? 0 : 1;
-    const focusCamera = baseCamera.clone().add(new THREE.Vector3(focusAnchor.x * 0.025, (focusAnchor.y - 1.2) * 0.018, 0));
-    const desired = cameraGoal || focusCamera.add(new THREE.Vector3(pointerEase.x * 0.16 * parallax, pointerEase.y * 0.07 * parallax, 0));
-    camera.position.lerp(reducedMotion ? baseCamera : desired, reducedMotion ? 1 : 1 - Math.pow(0.00003, dt));
-    const focusTarget = baseTarget.clone().lerp(focusAnchor, 0.055);
-    const target = lookGoal || focusTarget.add(new THREE.Vector3(pointerEase.x * 0.08 * parallax, pointerEase.y * 0.035 * parallax, 0));
-    camera.lookAt(reducedMotion ? baseTarget : target);
+    if (event.pointerId !== gesture.pointer) return;
+    const g = gesture;
+    const point = pointOnDesk(event);
+    g.dx = event.clientX - g.x; g.dy = event.clientY - g.y; g.dz = point.z - g.point.z;
+    g.moved ||= Math.hypot(g.dx, g.dy) > 7;
+    if (g.id === "personnel") {
+      const desired = point.add(g.cardOffset);
+      desired.x = THREE.MathUtils.clamp(desired.x, compact ? -2.15 : -4, compact ? 2.15 : 4);
+      desired.z = THREE.MathUtils.clamp(desired.z, compact ? -3 : -2.2, compact ? 3 : 2.2);
+      desired.y = 1.4;
+      office.items.personnel.root.position.copy(desired);
+      office.items.personnel.root.rotation.y *= 0.8;
+    } else {
+      if (g.id === "creations" && g.useAngle) {
+        const rect = canvas!.getBoundingClientRect();
+        const angle = Math.atan2(event.clientY - rect.top - g.center.y, event.clientX - rect.left - g.center.x);
+        let delta = angle - g.lastAngle;
+        if (delta > Math.PI) delta -= Math.PI * 2;
+        if (delta < -Math.PI) delta += Math.PI * 2;
+        g.angle += delta; g.lastAngle = angle;
+      }
+      target[g.id] = gestureProgress(g.id, { ...g, angle: g.id === "creations" && g.useAngle ? g.angle : undefined });
     }
-
-    updateOverlay();
-    if (worldRoot.dataset.ytWorldState !== "unavailable" || !renderer.getContext().isContextLost()) {
+  }
+  function onPointerUp(event: PointerEvent) {
+    if (!gesture || gesture.pointer !== event.pointerId) return;
+    onPointerMove(event);
+    const g = gesture;
+    if (!g) return;
+    releaseCapture();
+    if (g.id === "personnel") {
+      if (g.moved) {
+        office.reader.updateWorldMatrix(true, false);
+        const local = office.reader.worldToLocal(office.items.personnel.root.position.clone());
+        if (acceptsCard(local.x, local.z)) commit("personnel");
+        else { badgeHeld = false; stage.personnel = "idle"; updateContext("officeCardMiss"); }
+      } else updateContext();
+    } else if (g.id === "logs") {
+      if (!g.moved) operate();
+      else { stage.logs = target.logs > 0.65 ? "opened" : "idle"; target.logs = stage.logs === "opened" ? 1 : 0; updateContext(); }
+    } else if (g.id === "collections") {
+      if (!g.moved) operate();
+      else if (target.collections > 0.8) commit("collections");
+      else { target.collections = 0; stage.collections = "idle"; updateContext(); }
+    } else if (g.id === "creations") {
+      if (!g.moved) operate();
+      else if (target.creations > 0.92) commit("creations");
+    } else {
+      if (target.sites > 0.74) commit("sites");
+      else { target.sites = 0; updateContext(); }
+    }
+  }
+  function cancelPointer() {
+    if (!gesture) return;
+    const id = gesture.id;
+    releaseCapture();
+    if (id === "personnel") { badgeHeld = false; stage[id] = "idle"; }
+    else if (stage[id] !== "opened") target[id] = 0;
+    updateContext();
+  }
+  function resize() {
+    cancelPointer();
+    width = canvas!.clientWidth || window.innerWidth;
+    height = canvas!.clientHeight || window.innerHeight;
+    compact = width <= 760;
+    office.layout(compact);
+    camera.aspect = width / height;
+    camera.position.copy(compact ? new THREE.Vector3(0, 12.3, 8.3) : new THREE.Vector3(3.4, 9.4, 10.6));
+    camera.lookAt(cameraTarget);
+    camera.updateProjectionMatrix(); camera.updateMatrixWorld(); scene.updateMatrixWorld(true);
+    // Fit actual interactive bounds, not the empty room, with space for the instructions.
+    const corners: THREE.Vector3[] = [];
+    for (const id of moduleOrder) {
+      const bounds = new THREE.Box3().setFromObject(office.items[id].hit);
+      for (const x of [bounds.min.x, bounds.max.x]) for (const y of [bounds.min.y, bounds.max.y]) for (const z of [bounds.min.z, bounds.max.z]) corners.push(new THREE.Vector3(x, y, z));
+    }
+    for (let attempt = 0; attempt < 20; attempt++) {
+      if (corners.every((p) => { const n = p.clone().project(camera); return Math.abs(n.x) < 0.88 && Math.abs(n.y) < (height < 550 ? 0.5 : 0.67); })) break;
+      camera.position.sub(cameraTarget).multiplyScalar(1.07).add(cameraTarget);
+      camera.lookAt(cameraTarget); camera.updateMatrixWorld();
+    }
+    cameraBase.copy(camera.position);
+    const distance = cameraBase.distanceTo(cameraTarget);
+    fog.near = distance + 5; fog.far = distance + 30;
+    camera.far = distance + 40; camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, compact ? 1.35 : 1.65));
+    renderer.setSize(width, height, false);
+  }
+  function onKey(event: KeyboardEvent) {
+    if (paused()) return;
+    if (event.key === "Escape") { reset(); return; }
+    if (event.target instanceof Element && event.target.closest("button,a,input,textarea,select")) return;
+    if (committing) return;
+    const delta = ["ArrowRight", "ArrowDown"].includes(event.key) ? 1 : ["ArrowLeft", "ArrowUp"].includes(event.key) ? -1 : 0;
+    if (delta) {
+      event.preventDefault();
+      const index = focused ? moduleOrder.indexOf(focused) : delta > 0 ? -1 : 0;
+      focus(moduleOrder[(index + delta + moduleOrder.length) % moduleOrder.length]);
+    } else if (event.key === "Enter" || event.key === " ") { event.preventDefault(); operate(); }
+  }
+  canvas.addEventListener("pointerdown", onPointerDown, { signal });
+  canvas.addEventListener("pointermove", onPointerMove, { signal });
+  canvas.addEventListener("pointerup", onPointerUp, { signal });
+  canvas.addEventListener("pointercancel", cancelPointer, { signal });
+  canvas.addEventListener("lostpointercapture", cancelPointer, { signal });
+  canvas.addEventListener("pointerleave", () => { parallax.set(0, 0); }, { signal });
+  action?.addEventListener("click", operate, { signal });
+  document.addEventListener("keydown", onKey, { signal });
+  window.addEventListener("resize", resize, { signal });
+  window.addEventListener("blur", cancelPointer, { signal });
+  document.addEventListener("visibilitychange", cancelPointer, { signal });
+  motion.addEventListener("change", (event) => { reducedMotion = event.matches; }, { signal });
+  document.addEventListener("yt:directory", ((event: CustomEvent<{ open: boolean; module: ModuleId }>) => {
+    if (event.detail.open) { cancelPointer(); if (committing) reset(); }
+    directory = event.detail.open && moduleOrder.includes(event.detail.module) ? event.detail.module : null;
+  }) as EventListener, { signal });
+  canvas.addEventListener("webglcontextlost", (event) => {
+    event.preventDefault(); contextLost = true; reset(); root.dataset.ytWorldState = "unavailable";
+    if (fallback) fallback.hidden = false;
+  }, { signal });
+  canvas.addEventListener("webglcontextrestored", () => { cleanup(); initHomeWorld(); }, { signal });
+  const localeObserver = new MutationObserver(() => updateContext());
+  localeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["lang"] });
+  resize(); updateContext();
+  if (shell?.classList.contains("is-menu-open")) directory = (shell.querySelector<HTMLElement>("[data-yt-menu-link].is-active")?.dataset.ytModule as ModuleId) || "personnel";
+  let lastTime = performance.now();
+  function frame(time: number) {
+    if (disposed) return;
+    if (!root!.isConnected) { cleanup(); return; }
+    const dt = Math.min(0.05, Math.max(0, (time - lastTime) / 1000)); lastTime = time;
+    if (!paused()) {
+      if (gesture?.id === "sites") {
+        gesture.heldMs += dt * 1000;
+        target.sites = gestureProgress("sites", gesture);
+        if (target.sites >= 1) commit("sites");
+      }
+      const damping = reducedMotion ? 1 : 1 - Math.exp(-13 * dt);
+      for (const id of moduleOrder) { progress[id] += (target[id] - progress[id]) * damping; office.items[id].pose(progress[id]); }
+      if (gesture?.id !== "personnel") {
+        const badgeTarget = committing === "personnel" ? readerDock() : office.badgeHome.clone().add(new THREE.Vector3(0, badgeHeld ? 0.3 : 0, 0));
+        office.items.personnel.root.position.lerp(badgeTarget, damping);
+        const angle = badgeHeld || committing === "personnel" ? 0 : compact ? 0.09 : -0.16;
+        office.items.personnel.root.rotation.y += (angle - office.items.personnel.root.rotation.y) * damping;
+      }
+      const cameraGoal = cameraBase.clone();
+      if (!reducedMotion && !gesture) cameraGoal.add(new THREE.Vector3(parallax.x * 0.08, parallax.y * 0.035, 0));
+      camera.position.lerp(cameraGoal, damping); camera.lookAt(cameraTarget);
+    }
+    office.setOutline(directory ? null : focused, !directory && badgeHeld, directory);
+    if (annotation && focused && !paused()) {
+      const p = project(office.items[focused].anchor);
+      annotation.style.left = `${THREE.MathUtils.clamp(p.x, 95, Math.max(95, width - 95)).toFixed(1)}px`;
+      annotation.style.top = `${THREE.MathUtils.clamp(p.y - 45, 100, height - 160).toFixed(1)}px`;
+    }
+    if (meter) { const value = focused ? progress[focused] : 0; meter.style.setProperty("--office-progress", String(clampProgress(value))); meter.hidden = !focused || focused === "personnel"; }
+    if (!contextLost) {
       renderer.render(scene, camera);
-      worldRoot.dataset.ytWorldState = "ready";
+      root!.dataset.ytWorldState = "ready";
       if (fallback) fallback.hidden = true;
     }
     frameId = window.requestAnimationFrame(frame);
   }
-  frame();
+  function cleanup() {
+    if (disposed) return;
+    disposed = true;
+    window.cancelAnimationFrame(frameId); window.clearTimeout(navigationTimer);
+    listeners.abort(); localeObserver.disconnect();
+    const geometries = new Set<THREE.BufferGeometry>();
+    const materials = new Set<THREE.Material>(office.resources);
+    scene.traverse((node) => {
+      if (node instanceof THREE.DirectionalLight) node.shadow.dispose();
+      if (node instanceof THREE.Mesh || node instanceof THREE.LineSegments) {
+        geometries.add(node.geometry);
+        (Array.isArray(node.material) ? node.material : [node.material]).forEach((m) => materials.add(m));
+      }
+    });
+    geometries.forEach((g) => g.dispose()); materials.forEach((m) => m.dispose());
+    renderer.renderLists.dispose(); renderer.dispose();
+    delete root!.dataset.ytWorldInitialized;
+    if (window.__ytHomeWorldCleanup === cleanup) delete window.__ytHomeWorldCleanup;
   }
+  window.__ytHomeWorldCleanup = cleanup;
+  document.addEventListener("astro:before-swap", cleanup, { once: true, signal });
+  frame(lastTime);
 }
-
 if (window.__ytHomeWorldInit) document.removeEventListener("astro:page-load", window.__ytHomeWorldInit);
 window.__ytHomeWorldInit = initHomeWorld;
 document.addEventListener("astro:page-load", initHomeWorld);
