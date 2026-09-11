@@ -1,12 +1,14 @@
 ---
-interface Item { label: string; value: string; }
+import { getMessages } from "@core/i18n";
+const copy = getMessages();
+interface Item { label: string; value: string; key?: string; }
 interface Props { items: Item[]; tags: string[]; researchNotes: string; }
 const { items, tags, researchNotes } = Astro.props;
 ---
 <aside class="a1-file-metadata" aria-label="File metadata">
-  <header><span>FILE METADATA</span><b>READ ONLY</b></header>
-  <dl>{items.map(({ label, value }) => <div><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
-  <section class="a1-file-metadata__terms"><h2>INDEX TERMS</h2>{tags.length > 0 ? <ul>{tags.map((tag) => <li>{tag}</li>)}</ul> : <p>UNSPECIFIED</p>}</section>
-  <section class="a1-file-metadata__notes"><h2>RESEARCH NOTES</h2><p>{researchNotes}</p></section>
+  <header><span data-yt-copy="fileMetadata">{copy.fileMetadata}</span><b data-yt-copy="readOnly">{copy.readOnly}</b></header>
+  <dl>{items.map(({ label, value, key }) => <div><dt data-yt-copy={key}>{label}</dt><dd>{value}</dd></div>)}</dl>
+  <section class="a1-file-metadata__terms"><h2 data-yt-copy="indexTerms">{copy.indexTerms}</h2>{tags.length > 0 ? <ul>{tags.map((tag) => <li>{tag}</li>)}</ul> : <p data-yt-copy="notRecorded">{copy.notRecorded}</p>}</section>
+  <section class="a1-file-metadata__notes"><h2 data-yt-copy="researchNotes">{copy.researchNotes}</h2><p>{researchNotes}</p></section>
   <slot />
 </aside>

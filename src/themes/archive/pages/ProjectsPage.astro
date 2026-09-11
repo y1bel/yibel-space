@@ -1,0 +1,8 @@
+---
+import type { ProjectsPageData } from "@core/theme";
+import SystemShell from "../components/SystemShell.astro";
+import ProjectLedger from "../components/ProjectLedger.astro";
+interface Props { data: ProjectsPageData; }
+const { data } = Astro.props;
+---
+<SystemShell workspace active="creations" code="C-003"><ProjectLedger projects={data.projects} /></SystemShell>

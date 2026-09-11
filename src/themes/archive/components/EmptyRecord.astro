@@ -1,0 +1,7 @@
+---
+import { getMessages, type SystemCopy } from "@core/i18n";
+interface Props { title: keyof SystemCopy; description: keyof SystemCopy; }
+const { title, description } = Astro.props;
+const copy = getMessages();
+---
+<div class="yt-empty"><span class="yt-empty__mark" aria-hidden="true"></span><h2 data-yt-copy={title}>{copy[title]}</h2><p data-yt-copy={description}>{copy[description]}</p></div>

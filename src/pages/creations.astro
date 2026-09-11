@@ -1,9 +1,10 @@
 ---
+import { getProjects } from "@core/content";
 import { getActiveTheme, type SystemModulePageData } from "@core/theme";
 
 const theme = getActiveTheme();
 const Page = theme.pages.systemModule;
-const data: SystemModulePageData = { kind: "system-module", module: "creations" };
+const data: SystemModulePageData = { kind: "system-module", module: "creations", projects: await getProjects() };
 ---
 
 <Page data={data} />

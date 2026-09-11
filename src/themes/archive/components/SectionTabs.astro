@@ -1,0 +1,13 @@
+---
+import { getMessages, type SystemCopy } from "@core/i18n";
+interface Props { id: string; tabs: { id: string; label: keyof SystemCopy }[]; }
+const { id, tabs } = Astro.props;
+const copy = getMessages();
+---
+<div class="yt-submenu" role="tablist" aria-label={copy.directorySubtitle} data-yt-tabs={id}>
+  {tabs.map((tab, index) => <button type="button" role="tab" id={`${id}-tab-${tab.id}`} aria-selected={index === 0 ? "true" : "false"} aria-controls={`${id}-panel-${tab.id}`} tabindex={index === 0 ? 0 : -1} data-yt-tab={tab.id} data-yt-copy={tab.label}>{copy[tab.label]}</button>)}
+  <slot />
+</div>
+<script>
+  import "../interactions/section-tabs";
+</script>

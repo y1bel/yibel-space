@@ -3,38 +3,24 @@ import type { ArchivePageData } from "@core/theme";
 import { getMessages } from "@core/i18n";
 import { routes } from "@core/routing";
 import SystemShell from "../components/SystemShell.astro";
-
+import ModuleHeading from "../components/ModuleHeading.astro";
+import SectionTabs from "../components/SectionTabs.astro";
+import EmptyRecord from "../components/EmptyRecord.astro";
 interface Props { data: ArchivePageData; }
 const { data } = Astro.props;
 const copy = getMessages();
-const formatDate = (date: Date) => new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(date).replaceAll("-", ".");
-const kindForPost = (post: (typeof data.posts)[number]) => post.category === "fragment" ? "fragment" : "research";
+const tabs = [{ id: "all", label: "allLogs" }, { id: "research", label: "research" }, { id: "fragment", label: "fragments" }] as const;
+const kind = (post: (typeof data.posts)[number]) => post.category === "fragment" ? "fragment" : "research";
 ---
-
 <SystemShell workspace active="logs" code="L-002">
-  <section class="yt-logs" aria-labelledby="yt-logs-title">
-    <header class="yt-logs__heading"><div><p>02 / RECORD RETENTION</p><h1 id="yt-logs-title" data-yt-copy="logsTitle">{copy.logsTitle}</h1><span data-yt-copy="logsCopy">{copy.logsCopy}</span></div><b>{String(data.posts.length).padStart(2, "0")} ENTRIES</b></header>
-    <nav class="yt-logs__filters" aria-label="Log categories"><button class="is-active" type="button" data-yt-log-filter="all" data-yt-copy="allLogs">{copy.allLogs}</button><button type="button" data-yt-log-filter="research" data-yt-copy="research">{copy.research}</button><button type="button" data-yt-log-filter="fragment" data-yt-copy="fragments">{copy.fragments}</button><a href={routes.timeline} data-yt-copy="timeline">{copy.timeline}</a></nav>
-    <div class="yt-logs__list" data-yt-log-list>
-      {data.posts.map((post, index) => <a href={routes.post(post.slug)} data-yt-log-kind={kindForPost(post)}><span>{String(index + 1).padStart(2, "0")}</span><time>{formatDate(post.publishedAt)}</time><div><b>{post.title}</b><small>{post.description ?? post.category ?? "research"}</small></div><em>{kindForPost(post)}</em></a>)}
-      <p class="yt-logs__empty" hidden data-yt-log-empty data-yt-copy="noLogs">{copy.noLogs}</p>
-    </div>
+  <section class="yt-section">
+    <ModuleHeading title="logs" summary="logsSummary" code="L-002" count={data.posts.length} />
+    <SectionTabs id="logs" tabs={[...tabs]}><a href={routes.timeline} data-yt-copy="timeline">{copy.timeline}</a></SectionTabs>
+    {tabs.map((tab, index) => {
+      const posts = data.posts.filter((post) => tab.id === "all" || kind(post) === tab.id);
+      return <div class="yt-tab-panel" id={`logs-panel-${tab.id}`} role="tabpanel" aria-labelledby={`logs-tab-${tab.id}`} tabindex="0" hidden={index !== 0}>
+        {posts.length ? <ol class="yt-ledger">{posts.map((post) => <li class="yt-ledger__row"><a class="yt-ledger__link" href={routes.post(post.slug)}><time datetime={post.publishedAt.toISOString()}>{post.publishedAt.toISOString().slice(0, 10)}</time><div><h2>{post.title}</h2>{post.description && <p>{post.description}</p>}{post.tags.length > 0 && <span class="yt-ledger__tag">{post.tags.join(" / ")}</span>}</div><span class="yt-ledger__type" data-yt-copy={kind(post) === "fragment" ? "fragments" : "research"}>{kind(post) === "fragment" ? copy.fragments : copy.research}</span></a></li>)}</ol> : <EmptyRecord title="noLogs" description="logsCopy" />}
+      </div>;
+    })}
   </section>
 </SystemShell>
-
-<script>
-  const filters = document.querySelectorAll("[data-yt-log-filter]");
-  const entries = document.querySelectorAll("[data-yt-log-kind]");
-  const empty = document.querySelector("[data-yt-log-empty]");
-  filters.forEach((filter) => filter.addEventListener("click", () => {
-    const kind = filter.getAttribute("data-yt-log-filter");
-    let visible = 0;
-    entries.forEach((entry) => {
-      const show = kind === "all" || entry.getAttribute("data-yt-log-kind") === kind;
-      entry.toggleAttribute("hidden", !show);
-      if (show) visible += 1;
-    });
-    empty?.toggleAttribute("hidden", visible > 0);
-    filters.forEach((button) => button.classList.toggle("is-active", button === filter));
-  }));
-</script>

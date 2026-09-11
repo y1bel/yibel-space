@@ -63,18 +63,35 @@ function initHomeWorld() {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xe6e1d8);
-  scene.fog = new THREE.Fog(0xe6e1d8, 11, 25);
+  const fog = new THREE.Fog(0xe6e1d8, 11, 25);
+  scene.fog = fog;
 
   const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 50);
   camera.position.set(0.05, 2.96, 10.8);
   const baseCamera = camera.position.clone();
   const baseTarget = new THREE.Vector3(0, 1.3, -0.38);
 
-  const renderer = new THREE.WebGLRenderer({
-    canvas: worldCanvas,
-    antialias: true,
-    powerPreference: "high-performance",
-  });
+  const fallback = root.querySelector<HTMLElement>("[data-yt-world-fallback]");
+  let renderer: THREE.WebGLRenderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas: worldCanvas, antialias: true, powerPreference: "default" });
+  } catch {
+    root.dataset.ytWorldState = "unavailable";
+    if (fallback) fallback.hidden = false;
+    delete root.dataset.ytWorldInitialized;
+    return;
+  }
+  const onContextLost = (event: Event) => {
+    event.preventDefault();
+    root.dataset.ytWorldState = "unavailable";
+    if (fallback) fallback.hidden = false;
+  };
+  const onContextRestored = () => {
+    window.__ytHomeWorldCleanup?.();
+    initHomeWorld();
+  };
+  canvas.addEventListener("webglcontextlost", onContextLost, { signal: listeners.signal });
+  canvas.addEventListener("webglcontextrestored", onContextRestored, { signal: listeners.signal });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.35));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -758,6 +775,12 @@ function initHomeWorld() {
     const narrowFraming = Math.max(0, 1.5 - camera.aspect);
     const fitDistance = 6.1 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) - 1.8;
     baseCamera.set(0.05, 2.96 + narrowFraming * 0.25, Math.max(10.8, fitDistance));
+    // Fog is camera-relative: portrait framing must never put the whole room
+    // beyond fog.far (the cause of the blank mobile viewport).
+    const roomDistance = baseCamera.distanceTo(baseTarget);
+    fog.near = Math.max(11, roomDistance - 2);
+    fog.far = roomDistance + 24;
+    camera.far = Math.max(50, roomDistance + 36);
     camera.position.copy(baseCamera);
     camera.lookAt(baseTarget);
     camera.updateProjectionMatrix();
@@ -935,7 +958,11 @@ function initHomeWorld() {
     }
 
     updateOverlay();
-    renderer.render(scene, camera);
+    if (worldRoot.dataset.ytWorldState !== "unavailable" || !renderer.getContext().isContextLost()) {
+      renderer.render(scene, camera);
+      worldRoot.dataset.ytWorldState = "ready";
+      if (fallback) fallback.hidden = true;
+    }
     frameId = window.requestAnimationFrame(frame);
   }
   frame();

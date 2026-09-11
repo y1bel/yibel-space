@@ -1,0 +1,23 @@
+---
+import type { Project } from "@core/content";
+import { getMessages } from "@core/i18n";
+import { routes } from "@core/routing";
+import ModuleHeading from "./ModuleHeading.astro";
+import SectionTabs from "./SectionTabs.astro";
+import EmptyRecord from "./EmptyRecord.astro";
+interface Props { projects: Project[]; }
+const { projects } = Astro.props;
+const copy = getMessages();
+const tabs = [{ id: "all", label: "allProjects" }, { id: "active", label: "activeProjects" }, { id: "done", label: "finishedProjects" }] as const;
+const statusKey = { idea: "statusIdea", active: "statusActive", paused: "statusPaused", done: "statusDone", archived: "statusArchived" } as const;
+---
+<section class="yt-section">
+  <ModuleHeading title="creations" summary="creationsSummary" code="C-003" count={projects.length} />
+  <SectionTabs id="creations" tabs={[...tabs]} />
+  {tabs.map((tab, index) => {
+    const items = projects.filter((project) => tab.id === "all" || project.status === tab.id);
+    return <div class="yt-tab-panel" id={`creations-panel-${tab.id}`} role="tabpanel" aria-labelledby={`creations-tab-${tab.id}`} tabindex="0" hidden={index !== 0}>
+      {items.length ? <ol class="yt-ledger">{items.map((project) => <li class="yt-ledger__row"><a class="yt-ledger__link" href={routes.project(project.slug)}>{project.startedAt ? <time datetime={project.startedAt.toISOString()}>{project.startedAt.toISOString().slice(0, 10)}</time> : <span class="yt-ledger__type" data-yt-copy="notRecorded">{copy.notRecorded}</span>}<div><h2>{project.title}</h2><p>{project.description}</p><span class="yt-ledger__tag">{project.stack.join(" / ")}</span></div><span class="yt-ledger__type" data-yt-copy={statusKey[project.status]}>{copy[statusKey[project.status]]}</span></a></li>)}</ol> : <EmptyRecord title="noProjects" description="noProjectsNote" />}
+    </div>;
+  })}
+</section>

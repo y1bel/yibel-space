@@ -39,6 +39,13 @@ const hrefFor = Object.fromEntries(systemNavigation.map((item) => [item.id, item
 
   <button type="button" class="yt-world3d__tab" data-yt-home-menu aria-expanded="false" aria-controls="yt-system-menu"><kbd>TAB</kbd><span data-yt-copy="openMenu">{copy.openMenu}</span></button>
 
+  <div class="yt-world3d__fallback" data-yt-world-fallback>
+    <p data-yt-copy="worldFallback">{copy.worldFallback}</p>
+    <nav aria-label={copy.directoryTitle}>
+      {systemNavigation.map((item) => <a href={item.href} data-yt-copy={item.id}>{copy[item.id]}</a>)}
+    </nav>
+  </div>
+
   <div hidden data-yt-world-routes data-personnel={hrefFor.personnel} data-logs={hrefFor.logs} data-creations={hrefFor.creations} data-collections={hrefFor.collections} data-sites={hrefFor.sites}></div>
 </section>
 

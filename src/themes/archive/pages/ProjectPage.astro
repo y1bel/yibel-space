@@ -1,0 +1,18 @@
+---
+import type { ProjectPageData } from "@core/theme";
+import { getMessages } from "@core/i18n";
+import { routes } from "@core/routing";
+import SystemShell from "../components/SystemShell.astro";
+interface Props { data: ProjectPageData; }
+const { data: { project } } = Astro.props;
+const copy = getMessages();
+const statusKey = { idea: "statusIdea", active: "statusActive", paused: "statusPaused", done: "statusDone", archived: "statusArchived" } as const;
+---
+<SystemShell workspace active="creations" code={project.id}>
+  <article class="yt-section">
+    <div class="yt-inline-links"><a href={routes.creations} data-yt-copy="returnCreations">{copy.returnCreations}</a></div>
+    <header class="yt-section__heading"><div><p class="yt-eyebrow" data-yt-copy="creations">{copy.creations}</p><h1>{project.title}</h1><p>{project.description}</p></div></header>
+    <dl class="yt-facts"><div><dt data-yt-copy="projectStatus">{copy.projectStatus}</dt><dd data-yt-copy={statusKey[project.status]}>{copy[statusKey[project.status]]}</dd></div><div><dt data-yt-copy="projectStack">{copy.projectStack}</dt><dd>{project.stack.join(" / ") || "—"}</dd></div><div><dt data-yt-copy="projectStarted">{copy.projectStarted}</dt><dd>{project.startedAt?.toISOString().slice(0, 10) || "—"}</dd></div>{project.finishedAt && <div><dt data-yt-copy="projectFinished">{copy.projectFinished}</dt><dd>{project.finishedAt.toISOString().slice(0, 10)}</dd></div>}</dl>
+    {project.links && <nav class="yt-inline-links" aria-label={copy.projectLinks}>{Object.entries(project.links).map(([name, href]) => href && <a href={href} target="_blank" rel="noopener noreferrer">{name} ↗</a>)}</nav>}
+  </article>
+</SystemShell>

@@ -18,6 +18,7 @@ export interface PersonnelPageData { kind: "personnel"; }
 export interface SystemModulePageData {
   kind: "system-module";
   module: "creations" | "collections" | "sites";
+  projects?: Project[];
 }
 
 export type PageData =

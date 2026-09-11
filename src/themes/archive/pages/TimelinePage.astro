@@ -1,0 +1,18 @@
+---
+import type { TimelinePageData } from "@core/theme";
+import { getMessages } from "@core/i18n";
+import { routes } from "@core/routing";
+import SystemShell from "../components/SystemShell.astro";
+import ModuleHeading from "../components/ModuleHeading.astro";
+import EmptyRecord from "../components/EmptyRecord.astro";
+interface Props { data: TimelinePageData; }
+const { data } = Astro.props;
+const copy = getMessages();
+---
+<SystemShell workspace active="logs" code="L-TIMELINE">
+  <section class="yt-section">
+    <ModuleHeading title="timeline" summary="timelineSummary" code="L-TIMELINE" count={data.timeline.length} />
+    <nav class="yt-submenu" aria-label={copy.logs}><a href={routes.archive} data-yt-copy="returnLogs">{copy.returnLogs}</a><a href={routes.timeline} aria-current="page" data-yt-copy="timeline">{copy.timeline}</a></nav>
+    {data.timeline.length ? <ol class="yt-ledger">{data.timeline.map((event) => <li class="yt-ledger__row"><div class="yt-ledger__link"><time datetime={event.date}>{event.date}</time><div><h2>{event.title}</h2>{event.description && <p>{event.description}</p>}{event.related && <div class="yt-inline-links"><a href={event.related.type === "post" ? routes.post(event.related.slug) : routes.project(event.related.slug)} data-yt-copy="openRecord">{copy.openRecord}</a></div>}</div></div></li>)}</ol> : <EmptyRecord title="noTimeline" description="timelineSummary" />}
+  </section>
+</SystemShell>

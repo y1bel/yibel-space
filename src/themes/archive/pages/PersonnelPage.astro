@@ -2,17 +2,23 @@
 import type { PersonnelPageData } from "@core/theme";
 import { getMessages } from "@core/i18n";
 import SystemShell from "../components/SystemShell.astro";
-
+import ModuleHeading from "../components/ModuleHeading.astro";
+import SectionTabs from "../components/SectionTabs.astro";
+import EmptyRecord from "../components/EmptyRecord.astro";
 interface Props { data: PersonnelPageData; }
 const copy = getMessages();
 ---
-
 <SystemShell workspace active="personnel" code="P-001">
-  <section class="yt-module yt-personnel" aria-labelledby="yt-personnel-title">
-    <header><span>01 / {copy.personnel}</span><p>STATUS // STANDBY</p></header>
-    <div class="yt-personnel__grid">
-      <div class="yt-personnel__identity"><div aria-hidden="true"><span>Y</span></div><p>YIBEL</p><small>PERSONAL OPERATOR</small></div>
-      <div class="yt-personnel__copy"><h1 id="yt-personnel-title" data-yt-copy="profileTitle">{copy.profileTitle}</h1><p data-yt-copy="profileCopy">{copy.profileCopy}</p><ul><li>IDENTITY <b>RESTRICTED / PENDING</b></li><li>CURRENT STATUS <b>ACTIVE</b></li><li>CONTACT CHANNEL <b>UNASSIGNED</b></li></ul></div>
+  <section class="yt-section">
+    <ModuleHeading title="personnel" summary="personnelSummary" code="P-001" />
+    <SectionTabs id="personnel" tabs={[{ id: "identity", label: "identityTab" }, { id: "status", label: "statusTab" }, { id: "contact", label: "contactTab" }]} />
+    <div class="yt-tab-panel" id="personnel-panel-identity" role="tabpanel" aria-labelledby="personnel-tab-identity" tabindex="0">
+      <div class="yt-dossier">
+        <aside class="yt-dossier__identity"><div class="yt-dossier__seal" aria-hidden="true">Y</div><h2>YIBEL</h2><p data-yt-copy="operatorName">{copy.operatorName}</p></aside>
+        <dl class="yt-facts"><div><dt data-yt-copy="recordAlias">{copy.recordAlias}</dt><dd>YIBEL</dd></div><div><dt data-yt-copy="recordScope">{copy.recordScope}</dt><dd data-yt-copy="scopeValue">{copy.scopeValue}</dd></div><div><dt data-yt-copy="contactTab">{copy.contactTab}</dt><dd data-yt-copy="notPublished">{copy.notPublished}</dd></div></dl>
+      </div>
     </div>
+    <div class="yt-tab-panel" id="personnel-panel-status" role="tabpanel" aria-labelledby="personnel-tab-status" tabindex="0" hidden><EmptyRecord title="statusTab" description="statusNote" /></div>
+    <div class="yt-tab-panel" id="personnel-panel-contact" role="tabpanel" aria-labelledby="personnel-tab-contact" tabindex="0" hidden><EmptyRecord title="contactTab" description="contactNote" /></div>
   </section>
 </SystemShell>
